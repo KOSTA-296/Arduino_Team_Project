@@ -31,7 +31,7 @@ int Bt_num;                   // 수신 데이터를 int로 변환
 int speed = 150;              // 기본 speed 값 
 int command = 5;              // RC카 주행 모드 command 변수
 int cnt = 0;
-bool Mode_flag = false; // 자율 주행 모드 플래그 변수
+bool Auto_flag = false; // 자율 주행 모드 플래그 변수
 
 SoftwareSerial mySerial(TXD, RXD); //소프트웨어 시리얼 mySerial 객체 선언
 
@@ -64,9 +64,7 @@ void RightBack();                            // 우회전(후진)
 void autoDrive();                            // 자율 주행 함수
 
 float getDistance(int trigPin, int echoPin); // 초음파 센서 거리 측정(단위는 cm)
-void getFrontDistance(); // 초음파 센서 앞쪽 거리 측정(단위는 cm)
-void getLeftDistance();  // 초음파 센서 왼쪽 거리 측정(단위는 cm)
-void getRightDistance(); // 초음파 센서 오른쪽 거리 측정(단위는 cm)
+float Get_Distance(char case);   // 방향 거리 측정 함수
 
 void setup() {
   mySerial.begin(9600); //소프트웨어 시리얼 동기화
@@ -104,13 +102,13 @@ void loop() {
       if(Bt_num == 0){    // 0 -> Mode change 버튼 클릭
         Serial.print("Mode Change\n");
         cnt++;
-        Mode_flag = (cnt % 2 == 1);
+        Auto_flag = (cnt % 2 == 1);
       }
       else{
         command = Bt_num;
       }
     }
-    if(Mode_flag){
+    if(Auto_flag){
       autoDrive();
     }
     else{   // 자율 주행 모드가 아닌 경우 RC카 모드로 동작
@@ -121,7 +119,7 @@ void loop() {
   delay(1000); // 0.1초 대기
 }
 
-// DC모터 방향 지정 함수
+// DC모터 방향 지정 함수(S : 정지, F : 모터 방향 전방, B : 모터 방향 후방)
 void Set_Motordir(char case){
   switch(case){
     case 'S':  // 정지
@@ -151,24 +149,48 @@ void Set_MotorSpeed(int speed){
   analogWrite(SPEED_R, speed);
 }
 
-// 서보모터 각도 조절 함수()
+// 서보모터 각도 조절 함수(L : 좌측으로 회전, R : 우측으로 회전, C : 중앙으로 복귀)
 void Set_Servoangle(char case){
   switch (case) {
   case 'L':   // 좌측 회전
+    if(pos != 15){
+      Set_Servoangle('C');
+    }
+    for(pos = 15; pos <= 30; pos += 1){
+      myservo.write(pos);
+      delay(50);
+    }
     break;
   case 'R':   // 우측 회전
+    if(pos != 15){
+      Set_Servoangle('C');
+    }
+    for(pos = 15; pos >= 0; pos -= 1){
+      myservo.write(pos);
+      delay(50);
+    }
     break;
   case 'C':   // 원점으로 복귀
-    break;
-  default:
+    if(pos > 15){
+      for(;pos >= 15; pos -= 1){
+        myservo.write(pos);
+        delay(50);
+      }
+    }
+    else if(pos < 15){
+      for(;pos <= 15; pos += 1){
+        myservo.write(pos);
+        delay(50);
+      }
+    }
     break;
   }
 }
 
 // 수동 조작 함수
-void manualDrive(int num) {
+void manualDrive(int cmd) {
   // 수동 제어 모드(1~9)
-  switch (num) {
+  switch (cmd) {
   case 1:
     LeftForward();
     break;  
@@ -205,17 +227,10 @@ void manualDrive(int num) {
 // 좌회전(전진) : command = 1
 void LeftForward(){ 
   Set_Motordir('F');
-  for(pos = 15; pos <= 30; pos += 1){
-    myservo.write(pos);
-    delay(100);
-  }
+  Set_Servoangle('L');
   Set_MotorSpeed(speed);
   delay(3000);
-  for(pos = 30; pos >= 15; pos -= 1){
-    myservo.write(pos);
-    delay(100);
-  }
-  analogWrite(SPEED_L, 0);
+  Set_Servoangle('C');
 }
 
 // 전진 : command = 2
@@ -228,29 +243,17 @@ void Forward(){
 // 우회전 : command = 3
 void RightForward(){
   Set_Motordir('F');
-  for(pos = 15; pos >= 0; pos -= 1){
-    myservo.write(pos);
-    delay(100);
-  }
+  Set_Servoangle('R');
   Set_MotorSpeed(speed);
   delay(3000);
-  for(pos = 0; pos <= 15; pos += 1){
-    myservo.write(pos);
-    delay(100);
-  }
+  Set_Servoangle('C');
 }
 
 // 좌측 바퀴 회전 : command = 4
 void TurnLeft(){
-  for(pos = 15; pos <= 30; pos += 1){
-    myservo.write(pos);
-    delay(100);
-  }
+  Set_Servoangle('L');
   delay(3000);
-  for(pos = 30; pos >= 15; pos -= 1){
-    myservo.write(pos);
-    delay(100);
-  }
+  Set_Servoangle('C');
 }
 
 // 정지 : command = 5
@@ -262,30 +265,18 @@ void Stop(){
 
 // 우측 바퀴 회전 : command = 6
 void TurnRight(){
-  for(pos = 15; pos >= 0; pos -= 1){
-    myservo.write(pos);
-    delay(100);
-  }
+  Set_Servoangle('R');
   delay(3000);
-  for(pos = 0; pos <= 15; pos += 1){
-    myservo.write(pos);
-    delay(100);
-  }
+  Set_Servoangle('C');
 }
 
 // 좌회전(후진) : command = 7
 void LeftBack(){
   Set_Motordir('B');
-  for(pos = 30; pos <= 60; pos += 1){
-    myservo.write(pos);
-    delay(15);
-  }
+  Set_Servoangle('L');
   Set_MotorSpeed(speed);
   delay(3000);
-  for(pos = 60; pos >= 30; pos -= 1){
-    myservo.write(pos);
-    delay(15);
-  }
+  Set_Servoangle('C');
 }
 
 // 후진 : command = 8;
@@ -298,19 +289,11 @@ void Back(){
 // 우회전(후진) : command = 9
 void RightBack(){
   Set_Motordir('B');
-  for(pos = 30; pos >= 0; pos -= 1){
-    myservo.write(pos);
-    delay(15);
-  }
+  Set_Servoangle('R');
   Set_MotorSpeed(speed);
   delay(3000);
-  for(pos = 0; pos <= 30; pos += 1){
-    myservo.write(pos);
-    delay(15);
-  }
+  Set_Servoangle('C');
 }
-
-
 
 // 초음파 센서 거리 측정 함수, 단위는 cm
 float getDistance(int trigPin, int echoPin) {
@@ -343,41 +326,63 @@ float getDistance(int trigPin, int echoPin) {
   return distance;
 }
 
-// 앞 거리 측정 함수
-float getFrontDistance() { return getDistance(FRONTTRIG, FRONTECHO); }
-
-// 오른쪽 거리 측정 함수
-float getRightDistance() { return getDistance(RIGHTTRIG, RIGHTECHO); }
-
-// 왼쪽 거리 측정 함수
-float getLeftDistance() { return getDistance(LEFTTRIG, LEFTECHO); }
+// 방향 거리 측정 함수
+float Get_Distance(char case) {
+  switch (case) {
+  case 'F':
+    return Get_Distance(FRONTTRIG, FRONTECHO);
+  case 'R':
+    return Get_Distance(RIGHTTRIG, RIGHTECHO);
+  case 'L':
+    return Get_Distance(LEFTTRIG, LEFTECHO);
+  default:
+    return -1;
+  }
+}
 
 // 자율 주행 함수
-void autoDrive() {
+void AutoDrive() {
   // 초음파 센서로 거리 측정 예제
-  long leftDistance = getLeftDistance();   // 왼쪽 거리
-  long rightDistance = getRightDistance(); // 오른쪽 거리
-  long frontDistance = getFrontDistance(); // 앞쪽 거리
+  long frontDistance = Get_Distance('F'); // 앞쪽 거리 측정
+  long leftDistance = Get_Distance('L');  // 왼쪽 거리 측정
+  long rightDistance = Get_Distance('R'); // 오른쪽 거리 측정
 
   // 측정된 거리 출력 (디버깅용)
   // Serial.println("Left: " + String(leftDistance) + " cm, Right: " +
   // String(rightDistance) + " cm, Front: " + String(frontDistance) + " cm");
 
-  if (frontDistance <= 30) {    // 전방 30cm 이하에 장애물이 있을경우
-    Stop();                     // 일단 정지
-    if (rightDistance <= 30) {  // 오른쪽 30cm 이하에 장애물이 있을경우
-      if (leftDistance <= 30) { // 왼쪽 30cm 이하에 장애물이 있을경우
-        // 후진 후 회전
+  if (frontDistance <=
+      SAFE_DISTANCE) { // 전방 안전거리 이하에 장애물이 있을경우
+    // 일단 정지
+    Stop();
+    delay(500);
+    if (rightDistance <=
+        SAFE_DISTANCE) { // 오른쪽 안전거리 이하에 장애물이 있을경우
+      if (leftDistance <=
+          SAFE_DISTANCE) { // 왼쪽 안전거리 이하에 장애물이 있을경우
+        // 후진 후 정지
         Back();
-        delay(1000);
-        RightForward();
-      } else {      // 왼쪽에 장애물이 없을 경우
-        LeftForward(); // 왼쪽으로 회전
+        delay(1500);
+        Set_Servoangle('R');
+        Forward();
+        delay(500);
+        Set_Servoangle('C');
+      } else { // 왼쪽에 장애물이 없을 경우
+        // 왼쪽 주행
+        Set_Servoangle('L');
+        Forward();
+        delay(500);
+        Set_Servoangle('C');
       }
-    } else {       // 오른쪽에 장애물이 없을 경우
-      RightForward(); // 오른쪽으로 회전
+    } else { // 오른쪽에 장애물이 없을 경우
+      // 오른쪽 주행
+      Set_Servoangle('R');
+      Forward();
+      delay(500);
+      Set_Servoangle('C');
     }
-  } else {     // 전방에 장애물이 없을 경우
-    Forward(); // 전진
+  } else { // 전방에 장애물이 없을 경우
+    // 전진
+    Forward();
   }
 }
