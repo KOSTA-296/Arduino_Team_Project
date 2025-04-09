@@ -27,7 +27,7 @@ const int FRONTTRIG = 5;      // PCF8574의 P5 핀을 FrontTrig으로 설정
 /* 초기 설정 */
 SoftwareSerial mySerial(TXD, RXD); // 소프트웨어 시리얼 mySerial 객체 선언
 Servo myservo;      // 서보 모터 객체 9번핀 사용
-int pos;            // 서보 모터 위치 값을 저장하는 변수
+int pos = 15;       // 서보 모터 위치 값을 저장하는 변수, 초기값 15
 String Bt_str = ""; // bluetooth 모듈 수신 데이터 저장 변수
 int Bt_num;         // 수신 데이터를 int로 변환
 int speed = 150;    // 기본 speed 값
@@ -107,9 +107,11 @@ void loop() {
     }
     if(Auto_flag){
       autoDrive();
+      cnt = 1;
     }
     else{   // 자율 주행 모드가 아닌 경우 RC카 모드로 동작
       manualDrive(command);
+      cnt = 0;
     }
   }
   Set_Servoangle('C');
@@ -382,6 +384,45 @@ void AutoDrive() {
     }
   } else { // 전방에 장애물이 없을 경우
     // 전진
+    Forward();
+  }
+}
+
+void AutoDrive() {
+  long front = Get_Distance('F');
+  long left = Get_Distance('L');
+  long right = Get_Distance('R');
+
+  // 디버깅용 출력 (필요 시 활성화)
+  // Serial.print("F: "); Serial.print(front);
+  // Serial.print("cm, L: "); Serial.print(left);
+  // Serial.print("cm, R: "); Serial.println(right);
+
+  if (front < SAFE_DISTANCE) {
+    Stop();
+    delay(200); // 빠른 반응성 확보
+
+    if (left > right && left > SAFE_DISTANCE) {
+      Set_Servoangle('L');
+      Forward();
+      delay(400);
+      Set_Servoangle('C');
+    } else if (right > SAFE_DISTANCE) {
+      Set_Servoangle('R');
+      Forward();
+      delay(400);
+      Set_Servoangle('C');
+    } else {
+      Back();
+      delay(600);
+      Stop();
+      Set_Servoangle('R'); // 후진 후 방향 전환
+      Forward();
+      delay(400);
+      Set_Servoangle('C');
+    }
+  } else {
+    Set_Servoangle('C');
     Forward();
   }
 }
