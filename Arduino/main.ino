@@ -155,6 +155,7 @@ void Set_MotorSpeed(int speed){
 void Set_Servoangle(char case){
   switch (case) {
   case 'L':   // 좌측 회전
+    for(pos )
     break;
   case 'R':   // 우측 회전
     break;
@@ -205,17 +206,13 @@ void manualDrive(int num) {
 // 좌회전(전진) : command = 1
 void LeftForward(){ 
   Set_Motordir('F');
-  for(pos = 15; pos <= 30; pos += 1){
-    myservo.write(pos);
-    delay(100);
-  }
+  Set_Servoangle('L');
   Set_MotorSpeed(speed);
   delay(3000);
   for(pos = 30; pos >= 15; pos -= 1){
     myservo.write(pos);
     delay(100);
   }
-  analogWrite(SPEED_L, 0);
 }
 
 // 전진 : command = 2
