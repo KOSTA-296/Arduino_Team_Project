@@ -24,6 +24,15 @@ const int RIGHTTRIG = 3;   // PCF8574의 P3 (우측 Trig)
 const int FRONTECHO = 4;   // PCF8574의 P4 (전방 Echo)
 const int FRONTTRIG = 5;   // PCF8574의 P5 (전방 Trig)
 
+/* 자율 주행 모드 상태 변수 */
+enum AutoState {
+  STATE_FORWARD,
+  STATE_TURN_LEFT,
+  STATE_TURN_RIGHT,
+  STATE_BACKWARD,
+  STATE_WAIT
+};
+
 /* ------------------------------------------------------------------
    1. 모터 제어를 위한 클래스 (MotorController)
    - 좌/우 모터의 방향과 속도를 제어하는 기능을 캡슐화
@@ -188,6 +197,8 @@ class RC_Car {
   int speed;                 // 현재 모터 속도
   int command;               // 현재 동작 명령 (1~9)
   int modeToggleCount;       // 모드 변경 카운트
+  AutoState currentState = STATE_FORWARD;
+  unsigned long stateStartTime = 0;
 public:
   RC_Car(SoftwareSerial* serial)
     : motor(SPEED_L, DC_IN1_L, DC_IN2_L, SPEED_R, DC_IN1_R, DC_IN2_R),
@@ -320,39 +331,71 @@ public:
     servo.center();
   }
   
-  // 자율 주행 로직
+  // 자율 주행 로직 FSM 스타일로 개선
   void autoDrive() {
+    unsigned long currentTime = millis();
     int front = round(sensorFront.getDistance());
     int left  = round(sensorLeft.getDistance());
     int right = round(sensorRight.getDistance());
-    
-
-    // 전방에 장애물이 있으면
-    if (front < SAFE_DISTANCE) {
-      stop();
-      delay(200); // 빠른 반응
-      if (left > right && left > SAFE_DISTANCE) {
-        servo.turnLeft();
-        forward();
-        delay(400);
-        servo.center();
-      } else if (right > SAFE_DISTANCE) {
-        servo.turnRight();
-        forward();
-        delay(400);
-        servo.center();
-      } else { // 양쪽 모두 장애물이 있는 경우
-        back();
-        delay(600);
-        stop();
-        servo.turnRight(); // 후진 후 우측 회전
-        forward();
-        delay(400);
-        servo.center();
-      }
-    } else {
-      servo.center();
-      forward();
+  
+    switch (currentState) {
+      case STATE_FORWARD:
+        if (front < SAFE_DISTANCE) {
+          stop();
+          currentState = STATE_WAIT;
+          stateStartTime = currentTime;
+        } else {
+          forward();
+        }
+        break;
+  
+      case STATE_WAIT:
+        if (currentTime - stateStartTime >= 200) {
+          if (left > right && left > SAFE_DISTANCE) {
+            currentState = STATE_TURN_LEFT;
+          } else if (right > SAFE_DISTANCE) {
+            currentState = STATE_TURN_RIGHT;
+          } else {
+            currentState = STATE_BACKWARD;
+          }
+          stateStartTime = currentTime;
+        }
+        break;
+  
+      case STATE_TURN_LEFT:
+        if (currentTime - stateStartTime == 0) {
+          servo.turnLeft();
+          forward();
+        }
+        if (currentTime - stateStartTime >= 400) {
+          servo.center();
+          currentState = STATE_FORWARD;
+        }
+        break;
+  
+      case STATE_TURN_RIGHT:
+        if (currentTime - stateStartTime == 0) {
+          servo.turnRight();
+          forward();
+        }
+        if (currentTime - stateStartTime >= 400) {
+          servo.center();
+          currentState = STATE_FORWARD;
+        }
+        break;
+  
+      case STATE_BACKWARD:
+        if (currentTime - stateStartTime < 600) {
+          back();
+        } else if (currentTime - stateStartTime < 1000) {
+          stop();
+          servo.turnRight();
+          forward();
+        } else if (currentTime - stateStartTime >= 1400) {
+          servo.center();
+          currentState = STATE_FORWARD;
+        }
+        break;
     }
   }
 };

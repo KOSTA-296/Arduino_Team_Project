@@ -92,7 +92,6 @@ void PCF8574::write(const uint8_t pin, const uint8_t value)
   write8(_dataOut);
 }
 
-
 void PCF8574::toggle(const uint8_t pin)
 {
   if (pin > 7)
