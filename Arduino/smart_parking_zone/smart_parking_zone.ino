@@ -1,44 +1,36 @@
 #include <Servo.h>
-// #include <U8glib.h> // OLED 안씀
 
 // --- 핀 ---
 
 // 전면 초음파 센서 (차단봉 감지용) Ultrasound
 #define OUTSIDE_ULTRASONIC_TRIG 2
 #define OUTSIDE_ULTRASONIC_ECHO 3
-
 // 차단기 서보모터 핀
 #define SERVO_PIN 4
-
 // 삼색 LED 핀
 #define RGB_RED_PIN 5
-#define RGB_BLUE_PIN 6
-#define RGB_GREEN_PIN 7
-
+#define RGB_GREEN_PIN 6
+#define RGB_BLUE_PIN 7
 // 피에조 스피커 핀
 #define PIEZO_PIN 8
-
 // 후단 초음파 센서 (주차 감지용)
 #define INSIDE_ULTRASONIC_TRIG 9
 #define INSIDE_ULTRASONIC_ECHO 10
 
 // --- 상수 ---
 
-// 임계 거리 설정 (cm)
-#define OUTSIDE_DISTANCE_THRESHOLD 30 // 바깥 센서 거리 임계
-#define INSIDE_DISTANCE_THRESHOLD                                              \
-  30 // 안쪽 주차장 센서 거리 임계 (차가 주차되었는지 확인)
-
-// 차단기 하강 딜레이: 차량이 빠져나간 후 10초(10000ms) 대기
-#define GATE_DELAY 10000
+#define OUTSIDE_DISTANCE_THRESHOLD 30 // 바깥 센서 거리, 단위 cm
+#define INSIDE_DISTANCE_THRESHOLD 30  // 안쪽 센서 거리, 단위 cm
+#define GATE_DELAY 2 * 1000           // 게이트 한번 올리고 닫기 시간 2초
 
 // --- 전역 변수 ---
-Servo servo_gate;                // 차단기 서보모터 제어 객체
-bool gate_is_open = false;       // 차단기가 현재 올라갔는지
-unsigned long car_left_time = 0; // 차량이 전면 센서에서 빠져나간 시간 기록
-bool alarm_triggered = false;    // 경고음이 한 번 발생했는지 체크
-// U8GLIB_SSD1306_128X64 // 디스플레이 설정
-// u8g(U8G_I2C_OPT_NONE); // OLED 디스플레이 (0.96인치, 128x64)
+
+Servo servo_gate;                  // 서보모터 객체
+bool is_open_gate = false;         // 차단기 상태 변수, 게이트 닫힘
+bool is_on_inside_sensor = false;  // 안쪽 센서 상태 변수
+bool is_on_outside_sensor = false; // 바깥 센서 상태 변수
+int open_time_gate = 0;            // 게이트 열리는 시간 계산 상태 변수
+bool is_parked = true;             // 주차 상태 변수, 주차 가능
 
 // --- 함수 정의 ---
 
@@ -48,6 +40,24 @@ void set_led_color(int red, int green, int blue) {
   analogWrite(RGB_RED_PIN, red);
   analogWrite(RGB_GREEN_PIN, green);
   analogWrite(RGB_BLUE_PIN, blue);
+}
+
+// LED 색상 설정 함수 (R, G, B 중 하나)
+void set_led(char color) {
+  switch (color) {
+  case 'R':
+    set_led_color(255, 0, 0);
+    break;
+  case 'G':
+    set_led_color(0, 255, 0);
+    break;
+  case 'B':
+    set_led_color(0, 0, 255);
+    break;
+  default:
+    set_led_color(0, 0, 0);
+    break;
+  }
 }
 
 // 초음파 센서를 이용한 거리 측정 함수 (cm 단위)
@@ -65,63 +75,103 @@ long get_distance(int trigPin, int echoPin) {
   return distance;
 }
 
-// 주차장 게이트 제어 함수
-void control_gate() {
-  long outside_distance = get_distance(
-      OUTSIDE_ULTRASONIC_TRIG,
-      OUTSIDE_ULTRASONIC_ECHO); // 바깥 초음파 센서로 차량 접근 감지
-  long inside_distance = get_distance(
-      INSIDE_ULTRASONIC_TRIG,
-      INSIDE_ULTRASONIC_ECHO); // 안쪽 주차장 초음파 센서로 주차 여부 감지
+// 경고 알람 함수
+void trigger_alarm(int duration = 10) {
+  tone(PIEZO_PIN, 1000);
+  delay(duration * 1000);
+  noTone(PIEZO_PIN);
+}
 
-  // 차단기 제어
-  if (outside_distance <
-      OUTSIDE_DISTANCE_THRESHOLD) { // 차량이 전면에서 30cm 이내로 접근한 경우
-    // 차단기가 아직 올라가지 않았다면 바로 올리기
-    if (!gate_is_open) {
-      servo_gate.write(90); // 차단기를 90도로 올려 차량 진입 허용
-      gate_is_open = true;
-      car_left_time = 0; // 차량이 떠난 시간을 초기화
-    }
+// 게이트 상태 설정 함수
+void set_gate(char gate_state) {
+  switch (gate_state) {
+  case 'O':
+    servo_gate.write(90); // 차단기를 90도로 올려 차량 진입 허용
+    break;
+  case 'C':
+    servo_gate.write(0); // 차단기를 0도로 내려 차량 진입 금지
+    break;
+  }
+}
 
-    // 경고 알림: 아직 알림이 발생하지 않았다면 피에조로 1000Hz 음을 3초 동안
-    if (!alarm_triggered) { // 울림
-      tone(PIEZO_PIN, 1000);
-      delay(3000);
-      noTone(PIEZO_PIN);
-      alarm_triggered = true;
-    }
-  } else { // 차량이 전면 센서에서 30cm 이상일 때 → 차량이 주차장으로 들어가지
-           // 않은 상태 (또는 떠난 상태)
-    if (gate_is_open) {
-      if (car_left_time == 0) {
-        car_left_time = millis(); // 차량이 빠져나간 시점을 기록 (최초 한 번만)
-      } else {
-        // 10초(10000ms)가 지난 후 차단기를 내려서 닫음
-        if (millis() - car_left_time >= GATE_DELAY) {
-          servo_gate.write(0);     // 차단기를 0도로 내려 닫음
-          gate_is_open = false;    // 게이트 닫힘
-          alarm_triggered = false; // 다음 차량을 위한 알림 플래그 리셋
-          car_left_time = 0;       // 차량이 떠난 시간을 초기화
-        }
-      }
+// 안쪽 센서 감지 함수
+void state_inside_sensor() {
+  long inside_distance =
+      get_distance(INSIDE_ULTRASONIC_TRIG, INSIDE_ULTRASONIC_ECHO);
+
+  if (inside_distance <= INSIDE_DISTANCE_THRESHOLD) { // 안쪽 센서가 감지 될 때
+    is_on_inside_sensor = true;                       // 안쪽 센서 감지 됨 설정
+  } else {                                            // 안쪽 센서 감지 안될 때
+    is_on_inside_sensor = false; // 안쪽 센서 감지 안됨 설정
+  }
+}
+
+// 바깥쪽 센서 감지 함수
+void state_outside_sensor() {
+  long outside_distance =
+      get_distance(OUTSIDE_ULTRASONIC_TRIG, OUTSIDE_ULTRASONIC_ECHO);
+
+  if (outside_distance <=
+      OUTSIDE_DISTANCE_THRESHOLD) { // 바깥쪽 센서 감지 될 때
+    is_on_outside_sensor = true;    // 바깥쪽 센서 감지 됨 설정
+  } else {                          // 바깥쪽 센서 감지 안될 때
+    is_on_outside_sensor = false;   // 바깥쪽 센서 감지 안됨 설정
+  }
+}
+
+// 게이트 자동 닫힘 상태 관리 함수
+void state_open_time_gate() {
+  if (is_open_gate) {
+    if (open_time_gate == 0) {   // 게이트가 열린 시간이 0일 때
+      open_time_gate = millis(); // 게이트 열리는 시간 초기 값
+    } else if (millis() - open_time_gate >=
+               GATE_DELAY) { // 딜레이 시간만큼이 지났으면
+      set_gate('C');         // 차단기 닫음
+      open_time_gate = 0;    // 게이트 닫히는 시간 초기화
+      is_open_gate = false;  // 게이트 닫힘으로 변경
     }
   }
 }
 
-// OLED에 주차 상태를 출력하는 함수
-// void get_status_display(bool parked) {
-//   // 만차: "만차" 출력, 빈 자리: "자리 비었음" 출력
-//   u8g.firstPage();
-//   do {
-//     u8g.setFont(u8g_font_fub14);
-//     u8g.setPrintPos(10, 30);
-//     if (parked)
-//       u8g.print("만차");
-//     else
-//       u8g.print("자리 비었음");
-//   } while (u8g.nextPage());
-// }
+// 주차 상태 관리 함수
+void state_parked() {
+  if (is_on_inside_sensor) {
+    is_parked = true;
+    set_gate('O');
+  } else {
+    if (is_on_outside_sensor) {
+      is_parked = false;
+      set_gate('C');
+    }
+  }
+}
+
+// LED 상태 관리 함수
+void state_led() {
+  if (is_parked) {
+    set_led('R');
+  } else {
+    set_led('G');
+  }
+}
+
+// 게이트 상태 관리 함수
+void state_gate() {
+  if (is_on_outside_sensor && !is_parked) {
+    is_open_gate = true;
+    set_gate('O');
+  }
+}
+
+// 상태 관리 함수
+void state() {
+  state_outside_sensor(); // 바깥쪽 센서 상태 관리
+  state_inside_sensor();  // 안쪽 센서 상태 관리
+  state_open_time_gate(); // 게이트 문 상태 관리
+  state_parked();         // 주차 상태 관리
+  state_led();            // LED 상태 관리
+  state_gate();           // 게이트 상태 관리
+}
 
 // --- main ---
 void setup() {
@@ -150,28 +200,11 @@ void setup() {
   servo_gate.attach(SERVO_PIN);
   servo_gate.write(0); // 초기 상태: 차단기가 내려감 (닫힘)
 
-  // 초기 LED 상태 및 OLED 초기화: 주차장 기본 상태 = "자리 비었음" -> LED:
-  set_led_color(255, 0, 0); // 빨간색
-  // displayParkingStatus(false);
+  set_led('G'); // 초기 상태 초록색
 }
 
 void loop() {
-  control_gate(); // 주차장 게이트 관리 함수 호출
+  state(); // 전체 상태 관리 함수 호출
 
-  // // 주차 상태 업데이트 (후단 센서 기준)
-  // // 후단 센서가 30cm 미만이면 차량이 주차되었다고 판단
-  // bool parked = (parkDistance > 0 && parkDistance < PARK_THRESHOLD);
-  // if (parked) {
-  //   // 차량 주차: OLED에 "만차" 출력, RGB LED를 초록색으로 (예: (0,255,0))
-  //   displayParkingStatus(true);
-  //   set_led_color(0, 255, 0);
-  // } else {
-  //   // 주차 공간 비어있음: OLED에 "자리 비었음" 출력, RGB LED를 빨간색으로
-  //   (예:
-  //   // (255,0,0))
-  //   displayParkingStatus(false);
-  //   set_led_color(255, 0, 0);
-  // }
-
-  delay(100); // 센서 안정화를 위한 0.1초 대기
+  delay(1000); // 센서 안정화를 위한 1초 대기
 }
