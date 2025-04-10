@@ -117,26 +117,28 @@ public:
     }
     pos = end;
   }
-  
-  // 좌측 회전 (15도에서 30도로)
-  void turnLeft() {
-    if (pos != 15) {  // 원점(15도)으로 복귀 후 좌측 회전
-      center();
+
+  // 중앙(원점)으로 복귀
+  void center() {
+    if (pos != 15) {
+    setAngleSmoothly(pos, 15);
     }
-    setAngleSmoothly(pos, 30);
   }
-  
-  // 우측 회전 (15도에서 0도로)
-  void turnRight() {
+
+  // 좌측 회전 (15도에서 0도로)
+  void turnLeft() {
     if (pos != 15) {
       center();
     }
     setAngleSmoothly(pos, 0);
   }
   
-  // 중앙(원점)으로 복귀
-  void center() {
-    setAngleSmoothly(pos, 15);
+  // 우측 회전 (15도에서 30도로)
+  void turnRight() {
+    if (pos != 15) {  // 원점(15도)으로 복귀 후 좌측 회전
+      center();
+    }
+    setAngleSmoothly(pos, 30);
   }
 };
 
@@ -250,8 +252,6 @@ public:
       manualDrive(command);
     }
     
-    // 서보는 항상 중앙(원점)으로 복귀
-    servo.center();
     delay(1000);
   }
   
@@ -276,7 +276,7 @@ public:
     motor.setDirection('F');
     servo.turnLeft();
     motor.setSpeed(speed);
-    delay(3000);
+    delay(4000);
     servo.center();
   }
   
@@ -289,25 +289,22 @@ public:
     motor.setDirection('F');
     servo.turnRight();
     motor.setSpeed(speed);
-    delay(3000);
+    delay(4000);
     servo.center();
   }
   
   void turnLeft() {
     servo.turnLeft();
-    delay(3000);
-    servo.center();
   }
   
   void stop() {
     motor.setSpeed(0);
     motor.setDirection('S');
+    servo.center();
   }
   
   void turnRight() {
     servo.turnRight();
-    delay(3000);
-    servo.center();
   }
   
   void leftBack() {
@@ -331,6 +328,10 @@ public:
     servo.center();
   }
   
+  void setcenter() {
+    servo.center();
+  }
+
   // 자율 주행 로직 FSM 스타일로 개선
   void autoDrive() {
     unsigned long currentTime = millis();
@@ -348,7 +349,6 @@ public:
           forward();
         }
         break;
-  
       case STATE_WAIT:
         if (currentTime - stateStartTime >= 200) {
           if (left > right && left > SAFE_DISTANCE) {
@@ -361,36 +361,30 @@ public:
           stateStartTime = currentTime;
         }
         break;
-  
       case STATE_TURN_LEFT:
         if (currentTime - stateStartTime == 0) {
-          servo.turnLeft();
-          forward();
+          leftForward();
         }
         if (currentTime - stateStartTime >= 400) {
           servo.center();
           currentState = STATE_FORWARD;
         }
         break;
-  
       case STATE_TURN_RIGHT:
         if (currentTime - stateStartTime == 0) {
-          servo.turnRight();
-          forward();
+          rightForward();
         }
         if (currentTime - stateStartTime >= 400) {
           servo.center();
           currentState = STATE_FORWARD;
         }
         break;
-  
       case STATE_BACKWARD:
         if (currentTime - stateStartTime < 600) {
           back();
         } else if (currentTime - stateStartTime < 1000) {
           stop();
-          servo.turnRight();
-          forward();
+          rightForward();
         } else if (currentTime - stateStartTime >= 1400) {
           servo.center();
           currentState = STATE_FORWARD;
