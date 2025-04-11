@@ -182,7 +182,7 @@ void state_gate() {
 }
 
 void state_alarm() {
-  if (auto_close_gate) {
+  if (is_gate_open) {
     trigger_alarm(3);
   }
 }
