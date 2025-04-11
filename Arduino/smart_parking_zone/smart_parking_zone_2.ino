@@ -199,7 +199,7 @@ void state_gate() {
   }
   // 주차 불가 상태이고 안쪽 센서 감지 시 게이트 닫기
   else if (!ss.is_parking_available && ss.is_on_inside_sensor) {
-    set_gate('C');
+    ss.auto_close_gate = true;
   }
 }
 
