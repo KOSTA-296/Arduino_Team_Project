@@ -18,7 +18,6 @@
 #define INSIDE_ULTRASONIC_ECHO 11
 
 // --- 상수 ---
-//
 
 #define OUTSIDE_DISTANCE_THRESHOLD 30 // 바깥 센서 거리, 단위 cm
 #define INSIDE_DISTANCE_THRESHOLD 30  // 안쪽 센서 거리, 단위 cm

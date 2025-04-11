@@ -16,12 +16,17 @@ constexpr uint8_t PIEZO_PIN = 7;
 // 후단 초음파 센서 (주차 감지용)
 constexpr uint8_t INSIDE_ULTRASONIC_TRIG = 13;
 constexpr uint8_t INSIDE_ULTRASONIC_ECHO = 11;
+// DC 모터
+constexpr uint8_t MOTOR_PIN = 6;
+// 가스 센서 핀
+constexpr uint8_t GAS_PIN = A0;
 
 // --- 상수 ---
 
 constexpr uint8_t OUTSIDE_DISTANCE_THRESHOLD = 30; // 바깥 센서 거리, 단위 cm
 constexpr uint8_t INSIDE_DISTANCE_THRESHOLD = 30;  // 안쪽 센서 거리, 단위 cm
 constexpr uint16_t GATE_DELAY = 2 * 1000; // 게이트 한번 올리고 닫기 시간 2초
+constexpr uint16_t GAS_THRESHOLD = 250;   // 가스 감지 임계값
 
 // --- 전역 변수 ---
 
@@ -32,12 +37,35 @@ struct SystemState {
   bool is_on_outside_sensor = false; // 바깥쪽 센서 상태
   int time_gate_open = 0;            // 게이트 열린 시간
   bool is_parking_available = true;  // 주차 상태 변수, 주차 가능
+  bool is_on_motor = false;          // 모터 상태
+  bool is_gas_detected = false;      // 가스 감지 상태
 };
 
 SystemState ss;
 Servo servo; // 서보모터 객체
 
 // --- 함수 정의 ---
+
+// 초음파 센서를 이용한 거리 측정 함수 (cm 단위)
+long get_distance(int trigPin, int echoPin) {
+  // trigPin과 echoPin을 매개변수로 받아, 거리(cm)를 리턴
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH);
+  long distance =
+      duration * 0.034 / 2; // 초당 약 340m, 0.034 cm/µs, 왕복이므로 2로 나눔
+  return distance;
+}
+
+// 가스 센서 값을 읽어와 리턴하는 함수
+int get_gas() {
+  int gas = analogRead(GAS_PIN); // 가스 센서 값 읽기
+  return gas;
+}
 
 // 삼색 LED 색상 설정 함수 (0~255 값)
 void set_led_color(int red, int green, int blue) {
@@ -65,26 +93,28 @@ void set_led(char color) {
   }
 }
 
-// 초음파 센서를 이용한 거리 측정 함수 (cm 단위)
-long get_distance(int trigPin, int echoPin) {
-  // trigPin과 echoPin을 매개변수로 받아, 거리(cm)를 리턴
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-
-  long duration = pulseIn(echoPin, HIGH);
-  long distance =
-      duration * 0.034 / 2; // 초당 약 340m, 0.034 cm/µs, 왕복이므로 2로 나눔
-  return distance;
-}
-
-// 경고 알람 함수
-void trigger_alarm(int duration = 10) {
-  tone(PIEZO_PIN, 1000);
-  delay(duration * 1000);
-  noTone(PIEZO_PIN);
+// 0 ~ 4
+void set_motor(int motor_state) {
+  switch (motor_state) {
+  case 0:
+    analogWrite(MOTOR_PIN, 0);
+    break;
+  case 1:
+    analogWrite(MOTOR_PIN, 63);
+    break;
+  case 2:
+    analogWrite(MOTOR_PIN, 127);
+    break;
+  case 3:
+    analogWrite(MOTOR_PIN, 191);
+    break;
+  case 4:
+    analogWrite(MOTOR_PIN, 255);
+    break;
+  default:
+    analogWrite(MOTOR_PIN, 0);
+    break;
+  }
 }
 
 // 게이트 상태 설정 함수
@@ -102,6 +132,13 @@ void set_gate(char gate_state) {
   }
 }
 
+// 경고 알람 함수
+void trigger_alarm(int duration = 10) {
+  tone(PIEZO_PIN, 1000);
+  delay(duration * 1000);
+  noTone(PIEZO_PIN);
+}
+
 // 안쪽 센서 감지 함수
 void state_inside_sensor() {
   long inside_distance =
@@ -109,8 +146,7 @@ void state_inside_sensor() {
 
   if (inside_distance <= INSIDE_DISTANCE_THRESHOLD) { // 안쪽 센서가 감지 될 때
     ss.is_on_inside_sensor = true;                    // 안쪽 센서 감지 됨 설정
-    Serial.println("Inside sensor detected");
-  } else {                          // 안쪽 센서 감지 안될 때
+  } else {                                            // 안쪽 센서 감지 안될 때
     ss.is_on_inside_sensor = false; // 안쪽 센서 감지 안됨 설정
   }
 }
@@ -121,9 +157,8 @@ void state_outside_sensor() {
       get_distance(OUTSIDE_ULTRASONIC_TRIG, OUTSIDE_ULTRASONIC_ECHO);
 
   if (outside_distance <=
-      OUTSIDE_DISTANCE_THRESHOLD) { // 바깥쪽 센서 감지 될 때
-    ss.is_on_outside_sensor = true; // 바깥쪽 센서 감지 됨 설정
-    Serial.println("Outside sensor detected");
+      OUTSIDE_DISTANCE_THRESHOLD) {  // 바깥쪽 센서 감지 될 때
+    ss.is_on_outside_sensor = true;  // 바깥쪽 센서 감지 됨 설정
   } else {                           // 바깥쪽 센서 감지 안될 때
     ss.is_on_outside_sensor = false; // 바깥쪽 센서 감지 안됨 설정
   }
@@ -147,7 +182,6 @@ void state_time_gate_open() {
 void state_parked() {
   if (ss.is_on_inside_sensor) { // 안쪽 센서 감지 됨
     ss.is_parking_available = false;
-    Serial.println("Parking detected");
   } else {
     if (!ss.is_parking_available && ss.is_on_outside_sensor) {
       ss.is_parking_available = true;
@@ -169,7 +203,6 @@ void state_gate() {
   if (ss.is_on_outside_sensor &&
       ss.is_parking_available) { // 바깥쪽 센서 감지 && 주차 가능
     set_gate('O');
-    Serial.println("Gate opened");
   }
   if (ss.is_gate_open &&
       !ss.is_on_outside_sensor) { // 게이트 열림 && 바깥쪽 센서 감지 안됨
@@ -191,6 +224,24 @@ void state_alarm() {
   }
 }
 
+void state_motor() {
+  if (ss.is_gas_detected) {
+    set_motor(4); // 가스 배출
+  } else {
+    set_motor(1); // 평상시 공기 정화
+  }
+}
+
+// 가스 센서 감지 상태 함수
+void state_gas() {
+  int gas = get_gas();
+  if (gas > GAS_THRESHOLD) {
+    ss.is_gas_detected = true;
+  } else {
+    ss.is_gas_detected = false;
+  }
+}
+
 // 상태 관리 함수
 void state() {
   state_outside_sensor(); // 바깥쪽 센서 상태 관리
@@ -200,12 +251,11 @@ void state() {
   state_led();            // LED 상태 관리
   state_gate();           // 게이트 상태 관리
   state_alarm();          // 경고 상태 관리
+  state_motor();          // 모터 상태 관리
+  state_gas();            // 가스 센서 감지 상태 관리
 }
 
-// --- main ---
-void setup() {
-  Serial.begin(9600);
-
+void init_pin() {
   // --- 핀 모드 설정 ---
 
   // 바깥 초음파 센서
@@ -226,12 +276,29 @@ void setup() {
 
   // 차단기 서보모터
   pinMode(SERVO_PIN, OUTPUT);
+
+  // DC 모터
+  pinMode(MOTOR_PIN, OUTPUT);
+
+  // 가스 센서 핀
+  pinMode(GAS_PIN, INPUT);
+}
+
+void init_setup() {
+  Serial.begin(9600);
+
   servo.attach(SERVO_PIN);
   servo.write(0); // 초기 상태: 차단기가 내려감 (닫힘)
 
   set_led('G'); // 초기 상태 초록색
 
   delay(1000); // 센서 초기 안정화를 위해 추가
+}
+
+// --- main ---
+void setup() {
+  init_pin();
+  init_setup();
 }
 
 void loop() {
