@@ -22,7 +22,7 @@
 
 #define OUTSIDE_DISTANCE_THRESHOLD 30 // 바깥 센서 거리, 단위 cm
 #define INSIDE_DISTANCE_THRESHOLD 30  // 안쪽 센서 거리, 단위 cm
-#define GATE_DELAY 2 * 1000           // 게이트 한번 올리고 닫기 시간 2초
+#define GATE_DELAY 1 * 1000           // 게이트 한번 올리고 닫기 시간 2초
 
 // --- 전역 변수 ---
 
