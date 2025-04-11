@@ -179,7 +179,15 @@ void state_time_gate_open() {
 }
 
 // 주차 상태 관리 함수
-void state_parked() { ss.is_parking_available = !ss.is_on_inside_sensor; }
+void state_parked() {
+  if (ss.is_on_inside_sensor) { // 안쪽 센서 감지 됨
+    ss.is_parking_available = false;
+  } else {
+    if (!ss.is_parking_available && ss.is_on_outside_sensor) {
+      ss.is_parking_available = true;
+    }
+  }
+}
 
 // LED 상태 관리 함수
 void state_led() {
@@ -190,15 +198,32 @@ void state_led() {
   }
 }
 
-// 게이트 상태 관리 함수
+/*
+* 게이트 상태 관리 함수
+* 1. 바깥쪽 센서 감지 되고 주차가능 일 때: 차가 밖에서 안으로 들어올려 하고 있음
+-> 게이트 열림
+* 2. 안쪽 센서 감지 되면: 차가 주차 되어 있음 -> 게이트 닫힘
+* 3. 안쪽 센서 감지 안되고 주차 불가능 일 때: 안에 차가 있음 -> 게이트 열림
+* 4. 안쪽 센서 감지 안되고 바깥쪽 센서 감지 됨 -> 몇초후 게이트 닫힘
+*/
 void state_gate() {
-  // 주차 가능 상태이고 바깥 센서 감지 시 게이트 열기
-  if (ss.is_parking_available && ss.is_on_outside_sensor) {
+  /* 1. 바깥쪽 센서 감지 되고 주차가능 일 때: 차가 밖에서 안으로 들어올려 하고
+   * 있음
+   * -> 게이트 열림 */
+  if (ss.is_on_outside_sensor && ss.is_parking_available) {
     set_gate('O');
-    ss.auto_close_gate = true;
   }
-  // 주차 불가 상태이고 안쪽 센서 감지 시 게이트 닫기
-  else if (!ss.is_parking_available && ss.is_on_inside_sensor) {
+  /* 2. 안쪽 센서 감지 되면: 차가 주차 되어 있음 -> 게이트 닫힘 */
+  if (ss.is_on_inside_sensor) {
+    set_gate('C');
+  }
+  /* 3. 안쪽 센서 감지 안되고 주차 불가능 일 때: 안에 차가 있음 -> 게이트 열림
+   */
+  if (!ss.is_on_inside_sensor && !ss.is_parking_available) {
+    set_gate('O');
+  }
+  /* 4. 안쪽 센서 감지 안되고 바깥쪽 센서 감지 됨 -> 게이트 닫힘 */
+  if (!ss.is_on_inside_sensor && ss.is_on_outside_sensor) {
     ss.auto_close_gate = true;
   }
 }
