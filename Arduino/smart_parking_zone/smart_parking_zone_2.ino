@@ -179,15 +179,7 @@ void state_time_gate_open() {
 }
 
 // 주차 상태 관리 함수
-void state_parked() {
-  if (ss.is_on_inside_sensor) { // 안쪽 센서 감지 됨
-    ss.is_parking_available = false;
-  } else {
-    if (!ss.is_parking_available && ss.is_on_outside_sensor) {
-      ss.is_parking_available = true;
-    }
-  }
-}
+void state_parked() { ss.is_parking_available = !ss.is_on_inside_sensor; }
 
 // LED 상태 관리 함수
 void state_led() {
@@ -200,20 +192,13 @@ void state_led() {
 
 // 게이트 상태 관리 함수
 void state_gate() {
-  if (ss.is_on_outside_sensor &&
-      ss.is_parking_available) { // 바깥쪽 센서 감지 && 주차 가능
+  // 주차 가능 상태이고 바깥 센서 감지 시 게이트 열기
+  if (ss.is_parking_available && ss.is_on_outside_sensor) {
     set_gate('O');
+    ss.auto_close_gate = true;
   }
-  if (ss.is_gate_open &&
-      !ss.is_on_outside_sensor) { // 게이트 열림 && 바깥쪽 센서 감지 안됨
-    ss.auto_close_gate = true;    // 자동 닫힘 설정
-  }
-  if (!ss.is_on_inside_sensor &&
-      !ss.is_parking_available) { // 안쪽 센서 감지 안됨 && 주차 불가능
-    set_gate('O');
-  }
-  if (ss.is_on_inside_sensor &&
-      !ss.is_parking_available) { // 안쪽 센서 감지 && 주차 불가능
+  // 주차 불가 상태이고 안쪽 센서 감지 시 게이트 닫기
+  else if (!ss.is_parking_available && ss.is_on_inside_sensor) {
     set_gate('C');
   }
 }
