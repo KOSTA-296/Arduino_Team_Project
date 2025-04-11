@@ -120,25 +120,25 @@ public:
 
   // 중앙(원점)으로 복귀
   void center() {
-    if (pos != 22) {
-    setAngleSmoothly(pos, 22);
+    if (pos != 20) {
+    setAngleSmoothly(pos, 20);
     }
   }
 
   // 좌측 회전 (15도에서 0도로)
   void turnLeft() {
-    if (pos != 22) {
+    if (pos != 20) {
       center();
     }
-    setAngleSmoothly(pos, 2);
+    setAngleSmoothly(pos, 0);
   }
   
   // 우측 회전 (15도에서 30도로)
   void turnRight() {
-    if (pos != 22) {  // 원점(15도)으로 복귀 후 좌측 회전
+    if (pos != 20) {  // 원점(15도)으로 복귀 후 좌측 회전
       center();
     }
-    setAngleSmoothly(pos, 42);
+    setAngleSmoothly(pos, 40);
   }
 };
 
@@ -251,8 +251,19 @@ public:
     } else {
       manualDrive(command);
     }
-    
-    delay(1000);
+    int front1 = sensorFront.getDistance();
+    int left1 = sensorLeft.getDistance();
+    int right1 = sensorRight.getDistance();
+    Serial.print("Front Sensor : ");
+    Serial.print(front1);
+    Serial.println("cm");
+    Serial.print("Left Sensor : ");
+    Serial.print(left1);
+    Serial.println("cm");
+    Serial.print("Right Sensor : ");
+    Serial.print(right1);
+    Serial.println("cm");
+    delay(500);
   }
   
   // 수동 조종 동작 (명령에 따라 동작)
@@ -325,9 +336,9 @@ public:
   // 자율 주행 로직 FSM 스타일로 개선
   void autoDrive() {
     unsigned long currentTime = millis();
-    int front = round(sensorFront.getDistance());
-    int left  = round(sensorLeft.getDistance());
-    int right = round(sensorRight.getDistance());
+    int front = sensorFront.getDistance();
+    int left  = sensorLeft.getDistance();
+    int right = sensorRight.getDistance();
   
     switch (currentState) {
       case STATE_FORWARD:

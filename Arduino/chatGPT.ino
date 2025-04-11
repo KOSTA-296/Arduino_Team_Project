@@ -12,8 +12,11 @@
 #define SPEED_R 11            // 우측 모터 PWM 핀
 #define DC_IN1_R 8            // 우측 모터 IN1
 #define DC_IN2_R 12           // 우측 모터 IN2
-#define SAFE_DISTANCE 30      // 안전 거리 (cm 단위)
+#define SAFE_DISTANCE 30      // 기존 안전 거리 (cm 단위) – 필요 시 사용
 #define PCF8574_ADDRESS 0x20  // PCF8574 I2C 주소
+
+// 장애물 감지를 위한 새로운 임계값 (cm)
+constexpr int OBSTACLE_THRESHOLD = 10;
 
 /* PCF8574 확장 모듈 핀 설정 (초음파 센서) */
 PCF8574 pcf(PCF8574_ADDRESS);
@@ -24,18 +27,8 @@ const int RIGHTTRIG = 3;   // PCF8574의 P3 (우측 Trig)
 const int FRONTECHO = 4;   // PCF8574의 P4 (전방 Echo)
 const int FRONTTRIG = 5;   // PCF8574의 P5 (전방 Trig)
 
-/* 자율 주행 모드 상태 변수 */
-enum AutoState {
-  STATE_FORWARD,
-  STATE_TURN_LEFT,
-  STATE_TURN_RIGHT,
-  STATE_BACKWARD,
-  STATE_WAIT
-};
-
 /* ------------------------------------------------------------------
-   1. 모터 제어를 위한 클래스 (MotorController)
-   - 좌/우 모터의 방향과 속도를 제어하는 기능을 캡슐화
+   1. 모터 제어 클래스 (MotorController)
 ------------------------------------------------------------------- */
 class MotorController {
   int speedPinLeft, in1Left, in2Left;
@@ -87,32 +80,35 @@ public:
 };
 
 /* ------------------------------------------------------------------
-   2. 서보 제어를 위한 클래스 (ServoController)
-   - 서보 모터로 앞바퀴 회전을 부드럽게 제어
+   2. 서보 제어 클래스 (ServoController)
+   - 이번에는 중앙을 90도로 하여 좌측 70도, 우측 110도로 조향함
 ------------------------------------------------------------------- */
 class ServoController {
   Servo servo;
   int servoPin;
-  int pos;  // 현재 서보 각도 (기본 15도)
+  int pos;  // 현재 서보 각도
+  static const int centerPos = 22;
+  static const int leftPos = 2;
+  static const int rightPos = 42;
 public:
-  ServoController(int sPin) : servoPin(sPin), pos(15) {}
+  ServoController(int sPin) : servoPin(sPin), pos(centerPos) {}
 
   void begin() {
     servo.attach(servoPin);
     servo.write(pos);
   }
   
-  // start에서 end까지 1도씩 움직이면서 delay (부드러운 회전)
+  // 부드러운 각도 이동 (delay는 20ms)
   void setAngleSmoothly(int start, int end) {
     if (start < end) {
       for (int i = start; i <= end; i++) {
         servo.write(i);
-        delay(50);
+        delay(20);
       }
     } else {
       for (int i = start; i >= end; i--) {
         servo.write(i);
-        delay(50);
+        delay(20);
       }
     }
     pos = end;
@@ -120,31 +116,30 @@ public:
 
   // 중앙(원점)으로 복귀
   void center() {
-    if (pos != 22) {
-    setAngleSmoothly(pos, 22);
+    if (pos != centerPos) {
+      setAngleSmoothly(pos, centerPos);
     }
   }
 
-  // 좌측 회전 (15도에서 0도로)
+  // 좌측 회전: 20도 좌측으로 (70도)
   void turnLeft() {
-    if (pos != 22) {
+    if (pos != centerPos) {
       center();
     }
-    setAngleSmoothly(pos, 2);
+    setAngleSmoothly(pos, leftPos);
   }
   
-  // 우측 회전 (15도에서 30도로)
+  // 우측 회전: 20도 우측으로 (110도)
   void turnRight() {
-    if (pos != 22) {  // 원점(15도)으로 복귀 후 좌측 회전
+    if (pos != centerPos) {
       center();
     }
-    setAngleSmoothly(pos, 42);
+    setAngleSmoothly(pos, rightPos);
   }
 };
 
 /* ------------------------------------------------------------------
-   3. 초음파 센서를 위한 클래스 (UltrasonicSensor)
-   - PCF8574 모듈을 이용하여 확장된 디지털핀을 사용한 초음파 센서로 거리를 측정
+   3. 초음파 센서 클래스 (UltrasonicSensor)
 ------------------------------------------------------------------- */
 class UltrasonicSensor {
   PCF8574* pcfPtr;
@@ -156,13 +151,13 @@ public:
     
   // 거리 측정 (cm 단위)
   float getDistance() {
-    // Trig 핀으로 10μs 펄스 발생
+    // 트리거 펄스
     pcfPtr->write(trigPin, HIGH);
     delayMicroseconds(10);
     pcfPtr->write(trigPin, LOW);
 
     unsigned long startTime = millis();
-    // Echo 핀이 HIGH가 될 때까지 대기 (타임아웃 1초)
+    // 타임아웃 1초
     while (pcfPtr->read(echoPin) == LOW) {
       if (millis() - startTime > 1000) {
         return -1;
@@ -185,8 +180,8 @@ public:
 
 /* ------------------------------------------------------------------
    4. RC카 제어 클래스 (RC_Car)
-   - 모터, 서보, 초음파 센서, 블루투스 수신을 종합하여 
-     수동 및 자율 주행 모드를 구현
+   - 블루투스 명령에 따라 수동 모드 또는 자동 모드를 실행
+   - 자동 모드에서는 DC모터는 항상 전진하며, 초음파 센서 값에 따라 서보 모터로 조향합니다.
 ------------------------------------------------------------------- */
 class RC_Car {
   MotorController motor;
@@ -194,13 +189,9 @@ class RC_Car {
   UltrasonicSensor sensorFront;
   UltrasonicSensor sensorLeft;
   UltrasonicSensor sensorRight;
-  SoftwareSerial* btSerial;  // 블루투스 통신용 소프트웨어 시리얼
-  bool autoMode;             // false: 수동, true: 자율 주행
-  int speed;                 // 현재 모터 속도
-  int command;               // 현재 동작 명령 (1~9)
-  int modeToggleCount;       // 모드 변경 카운트
-  AutoState currentState = STATE_FORWARD;
-  unsigned long stateStartTime = 0;
+  SoftwareSerial* btSerial;  // 블루투스용 소프트웨어 시리얼
+  int speed;                 // DC모터 속도
+  int command;               // 수동 명령 (1~9)
 public:
   RC_Car(SoftwareSerial* serial)
     : motor(SPEED_L, DC_IN1_L, DC_IN2_L, SPEED_R, DC_IN1_R, DC_IN2_R),
@@ -209,53 +200,42 @@ public:
       sensorLeft(&pcf, LEFTTRIG, LEFTECHO),
       sensorRight(&pcf, RIGHTTRIG, RIGHTECHO),
       btSerial(serial),
-      autoMode(false),
       speed(150),
-      command(5),
-      modeToggleCount(0)
+      command(5)
   {}
   
-  // 각 구성요소 초기화
+  // 초기화
   void begin() {
     motor.begin();
     servo.begin();
-    // PCF8574의 트리거 핀 LOW 설정
+    // PCF8574 트리거 핀 LOW 설정
     pcf.write(LEFTTRIG, LOW);
     pcf.write(RIGHTTRIG, LOW);
     pcf.write(FRONTTRIG, LOW);
   }
   
-  // 블루투스 명령 및 주행 모드 업데이트 (메인 loop()에서 호출)
+  // 블루투스 명령 처리 및 동작 업데이트
   void update() {
     if (btSerial->available()) {
       String btStr = btSerial->readStringUntil('c');  // 'c'까지 읽기
       int btNum = btStr.toInt();
-      if (btNum > 255) {         // 최대 속도 제한
-        btNum = 255;
-      }
-      if (btNum > 9) {           // 10 이상이면 속도로 인식
+      if (btNum > 9) { // 10 이상이면 속도로 인식
         speed = btNum;
-      } else {
-        if (btNum == 0) {        // 모드 변경 명령 (0)
-          Serial.println("Mode Change");
-          modeToggleCount++;
-          autoMode = (modeToggleCount % 2 == 1);
-        } else {
-          command = btNum;       // 1~9 명령
-        }
+      }
+      else if (btNum == 0) { // 0번 명령: 자동 주행 모드
+        // Serial.println(btNum);
+        autoDrive();
+        return; // 자동 주행 모드에서는 manualDrive 실행하지 않음
+      }
+      else {
+        command = btNum;
+        manualDrive(command);
       }
     }
-    
-    if (autoMode) {
-      autoDrive();
-    } else {
-      manualDrive(command);
-    }
-    
     delay(1000);
   }
   
-  // 수동 조종 동작 (명령에 따라 동작)
+  // 수동 조종 (기존 함수 유지)
   void manualDrive(int cmd) {
     switch (cmd) {
       case 1: leftForward();  break;
@@ -271,16 +251,17 @@ public:
     }
   }
   
-  // 동작 함수들 (각 동작은 모터 방향, 서보 회전, 속도 제어, 지연 포함)
+  // 동작 함수들 (수동 모드)
   void leftForward() {
     motor.setDirection('F');
     servo.turnLeft();
     motor.setSpeed(speed);
+    delay(4000);
+    servo.center();
   }
   
   void forward() {
     motor.setDirection('F');
-    servo.center();
     motor.setSpeed(speed);
   }
   
@@ -288,6 +269,8 @@ public:
     motor.setDirection('F');
     servo.turnRight();
     motor.setSpeed(speed);
+    delay(4000);
+    servo.center();
   }
   
   void turnLeft() {
@@ -295,9 +278,9 @@ public:
   }
   
   void stop() {
-    servo.center();
     motor.setSpeed(0);
     motor.setDirection('S');
+    servo.center();
   }
   
   void turnRight() {
@@ -308,11 +291,12 @@ public:
     motor.setDirection('B');
     servo.turnLeft();
     motor.setSpeed(speed);
+    delay(3000);
+    servo.center();
   }
   
   void back() {
     motor.setDirection('B');
-    servo.center();
     motor.setSpeed(speed);
   }
   
@@ -320,66 +304,48 @@ public:
     motor.setDirection('B');
     servo.turnRight();
     motor.setSpeed(speed);
+    delay(3000);
+    servo.center();
   }
   
-  // 자율 주행 로직 FSM 스타일로 개선
+  // 자동 주행 모드: DC모터는 계속 전진하고, 초음파 센서 값에 따라 서보 조향
   void autoDrive() {
-    unsigned long currentTime = millis();
-    int front = round(sensorFront.getDistance());
-    int left  = round(sensorLeft.getDistance());
-    int right = round(sensorRight.getDistance());
-  
-    switch (currentState) {
-      case STATE_FORWARD:
-        if (front < SAFE_DISTANCE) {
-          stop();
-          currentState = STATE_WAIT;
-          stateStartTime = currentTime;
-        } else {
-          forward();
-        }
-        break;
-      case STATE_WAIT:
-        if (currentTime - stateStartTime >= 200) {
-          if (left > right && left > SAFE_DISTANCE) {
-            currentState = STATE_TURN_LEFT;
-          } else if (right > SAFE_DISTANCE) {
-            currentState = STATE_TURN_RIGHT;
-          } else {
-            currentState = STATE_BACKWARD;
-          }
-          stateStartTime = currentTime;
-        }
-        break;
-      case STATE_TURN_LEFT:
-        if (currentTime - stateStartTime == 0) {
-          leftForward();
-        }
-        if (currentTime - stateStartTime >= 400) {
-          servo.center();
-          currentState = STATE_FORWARD;
-        }
-        break;
-      case STATE_TURN_RIGHT:
-        if (currentTime - stateStartTime == 0) {
-          rightForward();
-        }
-        if (currentTime - stateStartTime >= 400) {
-          servo.center();
-          currentState = STATE_FORWARD;
-        }
-        break;
-      case STATE_BACKWARD:
-        if (currentTime - stateStartTime < 600) {
-          back();
-        } else if (currentTime - stateStartTime < 1000) {
-          stop();
-          rightForward();
-        } else if (currentTime - stateStartTime >= 1400) {
-          servo.center();
-          currentState = STATE_FORWARD;
-        }
-        break;
+    float front = sensorFront.getDistance();
+    float left = sensorLeft.getDistance();
+    float right = sensorRight.getDistance();
+    Serial.print("front : ");
+    Serial.print(front);
+    Serial.print(", left : ");
+    Serial.print(left);
+    Serial.print(", right : ");
+    Serial.println(right);
+    // DC모터는 항상 전진
+    motor.setDirection('F');
+    motor.setSpeed(speed);
+
+    // 장애물 감지 조건 (각 센서 20cm 임계값)
+    if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
+      // 세 개 센서 모두 20cm 이내 → 후진 (예: 500ms 후진)
+      motor.setDirection('B');
+      delay(500);
+      motor.setDirection('F'); // 다시 전진
+      servo.center();
+    }
+    else if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD) {
+      // 앞과 왼쪽에 장애물 → 우측으로 20도 조향
+      servo.turnRight();
+      delay(100);
+      servo.center();
+    }
+    else if (front < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
+      // 앞과 오른쪽에 장애물 → 좌측으로 20도 조향
+      servo.turnLeft();
+      delay(100);
+      servo.center();
+    }
+    else {
+      // 장애물이 없으면 조향 유지
+      servo.center();
     }
   }
 };
@@ -388,17 +354,17 @@ public:
    전역 객체 생성 및 초기화
 ------------------------------------------------------------------- */
 SoftwareSerial btSerial(TXD, RXD);  // 블루투스 통신용 SoftwareSerial
-RC_Car car(&btSerial);              // RC_Car 객체 (구성요소 모두 포함)
+RC_Car car(&btSerial);              // RC_Car 객체 생성
 
 void setup() {
-  Serial.begin(9600);       // 디버깅용 시리얼 모니터
+  Serial.begin(9600);
   btSerial.begin(9600);
   Wire.begin();
   pcf.begin();
   
-  car.begin();              // 각 구성요소 초기화
+  car.begin();
 }
 
 void loop() {
-  car.update();             // RC카 동작 업데이트
+  car.update(); // 주기적으로 업데이트
 }
