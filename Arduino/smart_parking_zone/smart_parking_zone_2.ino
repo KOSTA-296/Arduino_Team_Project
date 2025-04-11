@@ -30,15 +30,21 @@ constexpr uint16_t GAS_THRESHOLD = 250;   // 가스 감지 임계값
 
 // --- 전역 변수 ---
 
+// enum GateState {
+enum GateState {
+  GATE_CLOSED,      // 게이트 닫힘
+  GATE_OPEN_ENTRY,  // 차량 진입 위해 열림
+  GATE_OPEN_EXIT,   // 차량 퇴장 위해 열림
+  GATE_AUTO_CLOSING // 자동 닫힘 진행 중
+};
+
 struct SystemState {
-  bool is_gate_open = false;         // 게이트 상태
-  bool auto_close_gate = false;      // 자동 닫기 모드
-  bool is_on_inside_sensor = false;  // 안쪽 센서 상태
-  bool is_on_outside_sensor = false; // 바깥쪽 센서 상태
-  int time_gate_open = 0;            // 게이트 열린 시간
-  bool is_parking_available = true;  // 주차 상태 변수, 주차 가능
-  bool is_on_motor = false;          // 모터 상태
-  bool is_gas_detected = false;      // 가스 감지 상태
+  GateState gate_state = GATE_CLOSED;
+  bool is_on_inside_sensor = false;
+  bool is_on_outside_sensor = false;
+  bool is_parking_available = true;
+  bool is_gas_detected = false;
+  unsigned long gate_open_time = 0;
 };
 
 SystemState ss;
@@ -117,16 +123,15 @@ void set_motor(int motor_state) {
   }
 }
 
-// 게이트 상태 설정 함수
+// 게이트 상태 설정 함수 수정
 void set_gate(char gate_state) {
   switch (gate_state) {
   case 'O':
-    servo.write(90); // 차단기를 90도로 올려 차량 진입 허용
+    servo.write(90);
     ss.is_gate_open = true;
     break;
   case 'C':
-    servo.write(0); // 차단기를 0도로 내려 차량 진입 금지
-
+    servo.write(0);
     ss.is_gate_open = false;
     break;
   }
@@ -198,33 +203,42 @@ void state_led() {
   }
 }
 
-/*
-* 게이트 상태 관리 함수
-* 1. 바깥쪽 센서 감지 되고 주차가능 일 때: 차가 밖에서 안으로 들어올려 하고 있음
--> 게이트 열림
-* 2. 안쪽 센서 감지 되면: 차가 주차 되어 있음 -> 게이트 닫힘
-* 3. 안쪽 센서 감지 안되고 주차 불가능 일 때: 안에 차가 있음 -> 게이트 열림
-* 4. 안쪽 센서 감지 안되고 바깥쪽 센서 감지 됨 -> 몇초후 게이트 닫힘
-*/
+// --- 게이트 상태 관리 함수 ---
 void state_gate() {
-  /* 1. 바깥쪽 센서 감지 되고 주차가능 일 때: 차가 밖에서 안으로 들어올려 하고
-   * 있음
-   * -> 게이트 열림 */
-  if (ss.is_on_outside_sensor && ss.is_parking_available) {
-    set_gate('O');
-  }
-  /* 2. 안쪽 센서 감지 되면: 차가 주차 되어 있음 -> 게이트 닫힘 */
-  if (ss.is_on_inside_sensor) {
-    set_gate('C');
-  }
-  /* 3. 안쪽 센서 감지 안되고 주차 불가능 일 때: 안에 차가 있음 -> 게이트 열림
-   */
-  if (!ss.is_on_inside_sensor && !ss.is_parking_available) {
-    set_gate('O');
-  }
-  /* 4. 안쪽 센서 감지 안되고 바깥쪽 센서 감지 됨 -> 게이트 닫힘 */
-  if (!ss.is_on_inside_sensor && ss.is_on_outside_sensor) {
-    ss.auto_close_gate = true;
+  switch (ss.gate_state) {
+  case GATE_CLOSED:
+    if (ss.is_on_inside_sensor) {
+      // 주차된 차량이 있으면 게이트 닫힘 상태 유지
+      set_gate('C');
+    } else if (ss.is_parking_available && ss.is_on_outside_sensor) {
+      // 주차 가능 + 외부 센서 감지: 진입 위해 게이트 열림
+      set_gate('O');
+      ss.gate_state = GATE_OPEN_ENTRY;
+      ss.gate_open_time = millis();
+    } else if (!ss.is_parking_available && !ss.is_on_inside_sensor &&
+               ss.is_on_outside_sensor) {
+      // 주차 불가능 + 내부 센서 미감지 + 외부 센서 감지: 퇴장 위해 게이트 열림
+      set_gate('O');
+      ss.gate_state = GATE_OPEN_EXIT;
+      ss.gate_open_time = millis();
+    }
+    break;
+
+  case GATE_OPEN_ENTRY:
+  case GATE_OPEN_EXIT:
+    // 게이트가 열린 후 일정 시간 지나면 자동 닫힘 시작
+    if (millis() - ss.gate_open_time >= GATE_DELAY) {
+      set_gate('C');
+      ss.gate_state = GATE_AUTO_CLOSING;
+    }
+    break;
+
+  case GATE_AUTO_CLOSING:
+    // 게이트가 완전히 닫히면 CLOSED 상태로 전환
+    if (!ss.is_gate_open) {
+      ss.gate_state = GATE_CLOSED;
+    }
+    break;
   }
 }
 
