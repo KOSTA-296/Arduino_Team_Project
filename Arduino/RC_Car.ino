@@ -15,7 +15,7 @@
 #define PCF8574_ADDRESS 0x20  // PCF8574 I2C 주소
 
 // 장애물 감지를 위한 임계값 (cm)
-constexpr int OBSTACLE_THRESHOLD = 20;
+constexpr int OBSTACLE_THRESHOLD = 40;
 
 /* PCF8574 확장 모듈 핀 설정 (초음파 센서) */
 PCF8574 pcf(PCF8574_ADDRESS);
@@ -122,17 +122,17 @@ public:
 
   // 좌측 회전: 70도로
   void turnLeft() {
-    if (pos != centerPos) {
-      center();
-    }
+    // if (pos != centerPos) {
+    //   center();
+    // }
     setAngleSmoothly(pos, leftPos);
   }
   
   // 우측 회전: 110도로
   void turnRight() {
-    if (pos != centerPos) {
-      center();
-    }
+    // if (pos != centerPos) {
+    //   center();
+    // }
     setAngleSmoothly(pos, rightPos);
   }
 };
@@ -268,7 +268,7 @@ public:
     motor.setDirection('F');
     servo.turnLeft();
     motor.setSpeed(speed);
-    delay(4000);
+    delay(2200);
     servo.center();
   }
   
@@ -281,7 +281,7 @@ public:
     motor.setDirection('F');
     servo.turnRight();
     motor.setSpeed(speed);
-    delay(4000);
+    delay(2200);
     servo.center();
   }
   
@@ -303,7 +303,7 @@ public:
     motor.setDirection('B');
     servo.turnLeft();
     motor.setSpeed(speed);
-    delay(3000);
+    delay(2200);
     servo.center();
   }
   
@@ -316,7 +316,7 @@ public:
     motor.setDirection('B');
     servo.turnRight();
     motor.setSpeed(speed);
-    delay(3000);
+    delay(2200);
     servo.center();
   }
   
