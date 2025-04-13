@@ -80,7 +80,7 @@ public:
 
 /* ------------------------------------------------------------------
    2. 서보 제어 클래스 (ServoController)
-   - 이번에는 중앙을 90도로 설정, 좌측 회전은 70도, 우측 회전은 110도로 조향
+   - 이번에는 중앙을 22도로 설정, 좌측 회전은 2도, 우측 회전은 42도로 조향
 ------------------------------------------------------------------- */
 class ServoController {
   Servo servo;
@@ -120,7 +120,7 @@ public:
     }
   }
 
-  // 좌측 회전: 70도로
+  // 좌측 회전: 2도로
   void turnLeft() {
     // if (pos != centerPos) {
     //   center();
@@ -128,7 +128,7 @@ public:
     setAngleSmoothly(pos, leftPos);
   }
   
-  // 우측 회전: 110도로
+  // 우측 회전: 42도로
   void turnRight() {
     // if (pos != centerPos) {
     //   center();
@@ -333,7 +333,7 @@ public:
     
     // 조건 판단 (우선순위: 세 센서 모두 장애물 > front+right > front+left > front 단독)
     if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
-      // 세 센서 모두 20cm 이내: 후진 동작 (500ms)
+      // 세 센서 모두 40cm 이내: 후진 동작 (1000ms)
       Serial.println("All obstacles! Reverse");
       motor.setDirection('B');
       delay(500);
