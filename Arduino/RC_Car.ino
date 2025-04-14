@@ -15,7 +15,7 @@
 #define PCF8574_ADDRESS 0x20  // PCF8574 I2C 주소
 
 // 장애물 감지를 위한 임계값 (cm)
-constexpr int OBSTACLE_THRESHOLD = 40;
+constexpr int OBSTACLE_THRESHOLD = 30;
 
 /* PCF8574 확장 모듈 핀 설정 (초음파 센서) */
 PCF8574 pcf(PCF8574_ADDRESS);
@@ -375,10 +375,21 @@ public:
     else if (front < OBSTACLE_THRESHOLD) {
       // 전방 장애물만 존재할 때: 기본적으로 우측으로 회전
       stop();
+      if(left < right){
+        autoRight();
+      }
+      else{
+        autoLeft();
+      }
       Serial.println("Front blocked. Turn Right");
-      autoRight();
       delay(100);
       // servo.center();
+    }
+    else if (left < OBSTACLE_THRESHOLD) {
+      servo.turnRight();
+    }
+    else if (right < OBSTACLE_THRESHOLD){
+      servo.turnLeft();
     }
     else {
       // 장애물이 없으면 중앙 유지

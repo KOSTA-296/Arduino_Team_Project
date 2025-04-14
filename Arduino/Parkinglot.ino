@@ -14,8 +14,8 @@
 #define GAS_PIN A0
 
 // --- 상수 ---
-#define OUTSIDE_DISTANCE_THRESHOLD 30
-#define INSIDE_DISTANCE_THRESHOLD 30
+#define OUTSIDE_DISTANCE_THRESHOLD 20
+#define INSIDE_DISTANCE_THRESHOLD 20
 #define GATE_DELAY (2 * 1000)
 #define GAS_THRESHOLD 250
 
@@ -128,27 +128,23 @@ void set_motor(int motor_state) {
 void set_gate(char gate_state) {
   switch (gate_state) {
     case 'O':
-      if (pos != 0){
-        for (pos; pos <= 90; pos++) {
-          servo.write(pos);
-          delay(30);
-        }
+      for (pos; pos <= 90; pos++) {
+        servo.write(pos);
+        delay(30);
       }
       ss.is_gate_open = true;
       break;
     case 'C':
-      if (pos != 90){
-        for (pos; pos >= 0; pos--) {
-          servo.write(pos);
-          delay(30);
-        }
+      for (pos; pos >= 0; pos--) {
+        servo.write(pos);
+        delay(30);
       }
       ss.is_gate_open = false;
       break;
   }
 }
 
-void trigger_alarm(int duration) {\
+void trigger_alarm(int duration) {
   if (ss.is_gate_open){
     tone(PIEZO_PIN, 1000, 100);
   }
@@ -160,11 +156,17 @@ void trigger_alarm(int duration) {\
 void state_inside_sensor() {
   long inside_distance = get_distance(INSIDE_ULTRASONIC_TRIG, INSIDE_ULTRASONIC_ECHO);
   ss.is_on_inside_sensor = (inside_distance <= INSIDE_DISTANCE_THRESHOLD);
+  // Serial.print("inside flag : ");
+  // Serial.println(ss.is_on_inside_sensor);
 }
 
 void state_outside_sensor() {
   long outside_distance = get_distance(OUTSIDE_ULTRASONIC_TRIG, OUTSIDE_ULTRASONIC_ECHO);
+  // Serial.print("Ouside distance : ");
+  // Serial.println(outside_distance);
   ss.is_on_outside_sensor = (outside_distance <= OUTSIDE_DISTANCE_THRESHOLD);
+  // Serial.print("outside flag : ");
+  // Serial.println(ss.is_on_outside_sensor);
 }
 
 void state_led() {
@@ -235,6 +237,8 @@ void state_gas() {
   Serial.print("Gas data : ");
   Serial.println(gas);
   ss.is_gas_detected = (gas > GAS_THRESHOLD);
+  Serial.print("Gas flag : ");
+  Serial.println(ss.is_gas_detected);
 }
 
 void state() {
