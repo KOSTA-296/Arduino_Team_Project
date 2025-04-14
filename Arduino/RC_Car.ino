@@ -16,6 +16,8 @@
 
 // 장애물 감지를 위한 임계값 (cm)
 constexpr int OBSTACLE_THRESHOLD = 30;
+// 왼쪽 or 오른쪽에만 존재하는 장애물 감지를 위한 임계값 (cm)
+constexpr int LR_THRESHOLD = 20;    
 
 /* PCF8574 확장 모듈 핀 설정 (초음파 센서) */
 PCF8574 pcf(PCF8574_ADDRESS);
@@ -347,7 +349,7 @@ public:
     
     // 조건 판단 (우선순위: 세 센서 모두 장애물 > front+right > front+left > front 단독)
     if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
-      // 세 센서 모두 40cm 이내: 후진 동작 (1000ms)
+      // 세 센서 모두 30cm 이내: 후진 동작 (1000ms)
       stop();
       Serial.println("All obstacles! Reverse");
       servo.center();
@@ -385,12 +387,12 @@ public:
       delay(100);
       // servo.center();
     }
-    else if (left < OBSTACLE_THRESHOLD) {
+    else if (left < LR_THRESHOLD) {     // 왼쪽에만 장애물 있으면 오른쪽으로 짧게 회전
       servo.turnRight();
     }
-    else if (right < OBSTACLE_THRESHOLD){
+    else if (right < LR_THRESHOLD){     // 오른쪽에만 장애물 있으면 왼쪽으로 짧게 회전
       servo.turnLeft();
-    }
+    }a
     else {
       // 장애물이 없으면 중앙 유지
       servo.center();
