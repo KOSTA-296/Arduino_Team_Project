@@ -1,25 +1,24 @@
 #include <Servo.h>
 
 // --- 핀 ---
-#define OUTSIDE_ULTRASONIC_TRIG 2
-#define OUTSIDE_ULTRASONIC_ECHO 3
-#define SERVO_PIN 5
-#define RGB_RED_PIN 10
-#define RGB_GREEN_PIN 9
-// #define RGB_BLUE_PIN 10 (필요 시 사용)
-#define PIEZO_PIN 7
-#define INSIDE_ULTRASONIC_TRIG 13
-#define INSIDE_ULTRASONIC_ECHO 11
-#define MOTOR_PIN 6
-#define GAS_PIN A0
+constexpr uint8_t OUTSIDE_ULTRASONIC_TRIG = 2;
+constexpr uint8_t OUTSIDE_ULTRASONIC_ECHO = 3;
+constexpr uint8_t SERVO_PIN = 5;
+constexpr uint8_t RGB_RED_PIN = 10;
+constexpr uint8_t RGB_GREEN_PIN = 9;
+// constexpr uint8_t RGB_BLUE_PIN = 10 // (필요 시 사용)
+constexpr uint8_t PIEZO_PIN = 7;
+constexpr uint8_t INSIDE_ULTRASONIC_TRIG = 13;
+constexpr uint8_t INSIDE_ULTRASONIC_ECHO = 11;
+constexpr uint8_t MOTOR_PIN = 6;
+constexpr uint8_t GAS_PIN = A0;
 
-// --- 상수 ---
-#define OUTSIDE_DISTANCE_THRESHOLD 20
-#define INSIDE_DISTANCE_THRESHOLD 20
-#define GATE_DELAY (2 * 1000)
-#define GAS_THRESHOLD 250
+// --- 전역 상수 ---
+const uint8_t OUTSIDE_DISTANCE_THRESHOLD = 20;
+const uint8_t INSIDE_DISTANCE_THRESHOLD = 20;
+const uint16_t GAS_THRESHOLD = 250;
 
-// --- 전역 변수 ---
+// --- 전역 상태 변수 ---
 struct SystemState {
   bool is_on_inside_sensor = false;
   bool is_on_outside_sensor = false;
@@ -29,6 +28,7 @@ struct SystemState {
   bool is_gate_open = false; // 게이트 열림 여부 추가
 };
 
+// --- 전역 객체 ---
 SystemState ss;
 Servo servo;
 int pos = 0;
