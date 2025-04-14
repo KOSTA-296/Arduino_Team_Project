@@ -156,11 +156,24 @@ void trigger_alarm(int duration) {
 void state_inside_sensor() {
   long inside_distance = get_distance(INSIDE_ULTRASONIC_TRIG, INSIDE_ULTRASONIC_ECHO);
   ss.is_on_inside_sensor = (inside_distance <= INSIDE_DISTANCE_THRESHOLD);
+<<<<<<< HEAD
+=======
+  // Serial.print("inside flag : ");
+  // Serial.println(ss.is_on_inside_sensor);
+>>>>>>> origin/hyunmin
 }
 
 void state_outside_sensor() {
   long outside_distance = get_distance(OUTSIDE_ULTRASONIC_TRIG, OUTSIDE_ULTRASONIC_ECHO);
+<<<<<<< HEAD
   ss.is_on_outside_sensor = (outside_distance <= OUTSIDE_DISTANCE_THRESHOLD);
+=======
+  // Serial.print("Ouside distance : ");
+  // Serial.println(outside_distance);
+  ss.is_on_outside_sensor = (outside_distance <= OUTSIDE_DISTANCE_THRESHOLD);
+  // Serial.print("outside flag : ");
+  // Serial.println(ss.is_on_outside_sensor);
+>>>>>>> origin/hyunmin
 }
 
 void state_led() {
@@ -228,7 +241,15 @@ void state_motor() {
 
 void state_gas() {
   int gas = get_gas();
+<<<<<<< HEAD
   ss.is_gas_detected = (gas > GAS_THRESHOLD);
+=======
+  Serial.print("Gas data : ");
+  Serial.println(gas);
+  ss.is_gas_detected = (gas > GAS_THRESHOLD);
+  Serial.print("Gas flag : ");
+  Serial.println(ss.is_gas_detected);
+>>>>>>> origin/hyunmin
 }
 
 void state() {
