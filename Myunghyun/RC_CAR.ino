@@ -239,7 +239,7 @@ public:
     // 모드에 따라 실행
     if (autoMode) {
       autoDrive();
-      delay(100);  // 0.1초 주기로 센서 읽기 및 판단
+      delay(1000);  // 1초 주기로 센서 읽기 및 판단
     }
     else {
       // 수동 모드인 경우 주기적으로 명령 실행 (필요 시 delay 조정)
@@ -268,7 +268,7 @@ public:
     motor.setDirection('F');
     servo.turnLeft();
     motor.setSpeed(speed);
-    delay(2200);
+    delay(2100);
     servo.center();
   }
   
@@ -281,7 +281,7 @@ public:
     motor.setDirection('F');
     servo.turnRight();
     motor.setSpeed(speed);
-    delay(2200);
+    delay(2100);
     servo.center();
   }
   
@@ -303,7 +303,7 @@ public:
     motor.setDirection('B');
     servo.turnLeft();
     motor.setSpeed(speed);
-    delay(2200);
+    delay(2100);
     servo.center();
   }
   
@@ -316,12 +316,12 @@ public:
     motor.setDirection('B');
     servo.turnRight();
     motor.setSpeed(speed);
-    delay(2200);
+    delay(2100);
     servo.center();
   }
   
   // 자동 주행 함수  
-  // DC모터는 계속 전진하면서 0.1초마다 센서 값을 읽어 아래 규칙에 따라 조향합니다.
+  // DC모터는 계속 전진하면서 1초마다 센서 값을 읽어 아래 규칙에 따라 조향합니다.
   void autoDrive() {
     float front = sensorFront.getDistance();
     float left = sensorLeft.getDistance();
