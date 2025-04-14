@@ -23,7 +23,7 @@
 struct SystemState {
   bool is_on_inside_sensor = false;
   bool is_on_outside_sensor = false;
-  bool is_parking = true;
+  bool is_parking = false;
   bool is_on_motor = false;
   bool is_gas_detected = false;
   bool is_gate_open = false;  // 게이트 열림 여부 추가
@@ -31,6 +31,17 @@ struct SystemState {
 
 SystemState ss;
 Servo servo;
+int pos = 0;
+
+enum GateState {
+  IDLE,
+  ENTRY_DETECTED,
+  ENTRY_IN_PROGRESS,
+  EXIT_DETECTED,
+  EXIT_IN_PROGRESS
+};
+
+GateState gate_state = IDLE;
 
 // --- 함수 정의 ---
 long get_distance(int trig, int echo);
@@ -117,26 +128,33 @@ void set_motor(int motor_state) {
 void set_gate(char gate_state) {
   switch (gate_state) {
     case 'O':
-      for (int i = 0; i <= 80; i++) {
-        servo.write(i);
-        delay(20);
+      if (pos != 0){
+        for (pos; pos <= 90; pos++) {
+          servo.write(pos);
+          delay(30);
+        }
       }
       ss.is_gate_open = true;
       break;
     case 'C':
-      for (int i = 80; i >= 0; i--) {
-        servo.write(i);
-        delay(20);
+      if (pos != 90){
+        for (pos; pos >= 0; pos--) {
+          servo.write(pos);
+          delay(30);
+        }
       }
       ss.is_gate_open = false;
       break;
   }
 }
 
-void trigger_alarm(int duration) {
-  tone(PIEZO_PIN, 1000);
-  delay(duration * 1000);
-  noTone(PIEZO_PIN);
+void trigger_alarm(int duration) {\
+  if (ss.is_gate_open){
+    tone(PIEZO_PIN, 1000, 100);
+  }
+  else {
+    noTone(PIEZO_PIN);
+  }
 }
 
 void state_inside_sensor() {
@@ -158,13 +176,44 @@ void state_led() {
 }
 
 void state_gate() {
-  // 예시: 바깥 센서 감지 시 게이트 열고, 그렇지 않으면 닫기
-  if (ss.is_on_outside_sensor && !ss.is_on_inside_sensor) {
-    set_gate('O');
-    ss.is_parking = false; // 주차 불가 상태 등으로 설정 (원하는 논리에 맞게 수정)
-  } else {
-    set_gate('C');
-    ss.is_parking = true;
+  switch (gate_state) {
+    case IDLE:
+      if (!ss.is_parking && ss.is_on_outside_sensor) {
+        set_gate('O');
+        gate_state = ENTRY_DETECTED;
+      } else if (ss.is_parking && ss.is_on_inside_sensor) {
+        set_gate('O');
+        gate_state = EXIT_DETECTED;
+      }
+      break;
+
+    case ENTRY_DETECTED:
+      if (ss.is_on_inside_sensor) {
+        gate_state = ENTRY_IN_PROGRESS;
+      }
+      break;
+
+    case ENTRY_IN_PROGRESS:
+      if (!ss.is_on_outside_sensor && !ss.is_on_inside_sensor) {
+        set_gate('C');
+        ss.is_parking = true;
+        gate_state = IDLE;
+      }
+      break;
+
+    case EXIT_DETECTED:
+      if (ss.is_on_outside_sensor) {
+        gate_state = EXIT_IN_PROGRESS;
+      }
+      break;
+
+    case EXIT_IN_PROGRESS:
+      if (!ss.is_on_outside_sensor && !ss.is_on_inside_sensor) {
+        set_gate('C');
+        ss.is_parking = false;
+        gate_state = IDLE;
+      }
+      break;
   }
 }
 
@@ -214,7 +263,7 @@ void init_pin() {
 void init_setup() {
   Serial.begin(9600);
   servo.attach(SERVO_PIN);
-  servo.write(0);
+  servo.write(pos);
   set_led('G');
   delay(1000);
 }
@@ -226,5 +275,5 @@ void setup() {
 
 void loop() {
   state();
-  delay(500);
+  delay(100);
 }
