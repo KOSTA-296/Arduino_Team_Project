@@ -26,7 +26,7 @@
 * RC_Car.ino : 자동차 코드
 3. library 폴더 :
 * PCF8574-master : PCF8574 확장 모듈 사용을 위한 라이브러리 폴더
-** 출처 : https://github.com/xreef/PCF8574_library
+   출처 : https://github.com/xreef/PCF8574_library
 
 ## 📌 주요 기능
 
