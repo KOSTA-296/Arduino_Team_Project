@@ -15,7 +15,7 @@
 #define PCF8574_ADDRESS 0x20  // PCF8574 I2C 주소
 
 // 장애물 감지를 위한 임계값 (cm)
-constexpr int OBSTACLE_THRESHOLD = 40;
+constexpr int OBSTACLE_THRESHOLD = 30;
 
 /* PCF8574 확장 모듈 핀 설정 (초음파 센서) */
 PCF8574 pcf(PCF8574_ADDRESS);
@@ -80,7 +80,7 @@ public:
 
 /* ------------------------------------------------------------------
    2. 서보 제어 클래스 (ServoController)
-   - 이번에는 중앙을 90도로 설정, 좌측 회전은 70도, 우측 회전은 110도로 조향
+   - 이번에는 중앙을 22도로 설정, 좌측 회전은 2도, 우측 회전은 42도로 조향
 ------------------------------------------------------------------- */
 class ServoController {
   Servo servo;
@@ -120,7 +120,7 @@ public:
     }
   }
 
-  // 좌측 회전: 70도로
+  // 좌측 회전: 2도로
   void turnLeft() {
     // if (pos != centerPos) {
     //   center();
@@ -128,7 +128,7 @@ public:
     setAngleSmoothly(pos, leftPos);
   }
   
-  // 우측 회전: 110도로
+  // 우측 회전: 42도로
   void turnRight() {
     // if (pos != centerPos) {
     //   center();
@@ -268,11 +268,11 @@ public:
     motor.setDirection('F');
     servo.turnLeft();
     motor.setSpeed(speed);
-    delay(2200);
-    servo.center();
+    // delay(2200);
   }
   
   void forward() {
+    servo.center();
     motor.setDirection('F');
     motor.setSpeed(speed);
   }
@@ -281,8 +281,7 @@ public:
     motor.setDirection('F');
     servo.turnRight();
     motor.setSpeed(speed);
-    delay(2200);
-    servo.center();
+    // delay(2200);
   }
   
   void turnLeft() {
@@ -303,11 +302,11 @@ public:
     motor.setDirection('B');
     servo.turnLeft();
     motor.setSpeed(speed);
-    delay(2200);
-    servo.center();
+    // delay(2200);
   }
   
   void back() {
+    servo.center();
     motor.setDirection('B');
     motor.setSpeed(speed);
   }
@@ -316,10 +315,25 @@ public:
     motor.setDirection('B');
     servo.turnRight();
     motor.setSpeed(speed);
-    delay(2200);
-    servo.center();
+    // delay(2200);
   }
   
+  void autoLeft(){
+    motor.setDirection('B');
+    motor.setSpeed(speed);
+    delay(500);
+    motor.setDirection('F');
+    servo.turnLeft();
+  }
+
+  void autoRight(){
+    motor.setDirection('B');
+    motor.setSpeed(speed);
+    delay(500);
+    motor.setDirection('F');
+    servo.turnRight();
+  }
+
   // 자동 주행 함수  
   // DC모터는 계속 전진하면서 0.2초마다 센서 값을 읽어 아래 규칙에 따라 조향합니다.
   void autoDrive() {
@@ -333,33 +347,49 @@ public:
     
     // 조건 판단 (우선순위: 세 센서 모두 장애물 > front+right > front+left > front 단독)
     if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
-      // 세 센서 모두 20cm 이내: 후진 동작 (500ms)
+      // 세 센서 모두 40cm 이내: 후진 동작 (1000ms)
+      stop();
       Serial.println("All obstacles! Reverse");
-      motor.setDirection('B');
-      delay(500);
-      motor.setDirection('F');
       servo.center();
+      motor.setDirection('B');
+      motor.setSpeed(speed);
+      delay(2000);
+      motor.setDirection('F');
     }
     else if (front < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
       // 전방 및 오른쪽 장애물: 좌측 회전
+      stop();
       Serial.println("Front & Right blocked. Turn Left");
-      servo.turnLeft();
+      autoLeft();
       delay(100);
-      servo.center();
+      // servo.center();
     }
     else if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD) {
       // 전방 및 왼쪽 장애물: 우측 회전
+      stop();
       Serial.println("Front & Left blocked. Turn Right");
-      servo.turnRight();
+      autoRight();
       delay(100);
-      servo.center();
+      // servo.center();
     }
     else if (front < OBSTACLE_THRESHOLD) {
       // 전방 장애물만 존재할 때: 기본적으로 우측으로 회전
+      stop();
+      if(left < right){
+        autoRight();
+      }
+      else{
+        autoLeft();
+      }
       Serial.println("Front blocked. Turn Right");
-      servo.turnRight();
       delay(100);
-      servo.center();
+      // servo.center();
+    }
+    else if (left < OBSTACLE_THRESHOLD) {
+      servo.turnRight();
+    }
+    else if (right < OBSTACLE_THRESHOLD){
+      servo.turnLeft();
     }
     else {
       // 장애물이 없으면 중앙 유지
