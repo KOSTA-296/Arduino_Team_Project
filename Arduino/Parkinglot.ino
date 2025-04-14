@@ -26,7 +26,7 @@ struct SystemState {
   bool is_parking = false;
   bool is_on_motor = false;
   bool is_gas_detected = false;
-  bool is_gate_open = false;  // 게이트 열림 여부 추가
+  bool is_gate_open = false; // 게이트 열림 여부 추가
 };
 
 SystemState ss;
@@ -87,93 +87,81 @@ void set_led_color(int red, int green, int blue) {
 
 void set_led(char color) {
   switch (color) {
-    case 'R':
-      set_led_color(255, 0, 0);
-      break;
-    case 'G':
-      set_led_color(0, 255, 0);
-      break;
-    case 'B':
-      set_led_color(0, 0, 255);
-      break;
-    default:
-      set_led_color(0, 0, 0);
-      break;
+  case 'R':
+    set_led_color(255, 0, 0);
+    break;
+  case 'G':
+    set_led_color(0, 255, 0);
+    break;
+  case 'B':
+    set_led_color(0, 0, 255);
+    break;
+  default:
+    set_led_color(0, 0, 0);
+    break;
   }
 }
 
 void set_motor(int motor_state) {
   switch (motor_state) {
-    case 0:
-      analogWrite(MOTOR_PIN, 0);
-      break;
-    case 1:
-      analogWrite(MOTOR_PIN, 63);
-      break;
-    case 2:
-      analogWrite(MOTOR_PIN, 127);
-      break;
-    case 3:
-      analogWrite(MOTOR_PIN, 191);
-      break;
-    case 4:
-      analogWrite(MOTOR_PIN, 255);
-      break;
-    default:
-      analogWrite(MOTOR_PIN, 0);
-      break;
+  case 0:
+    analogWrite(MOTOR_PIN, 0);
+    break;
+  case 1:
+    analogWrite(MOTOR_PIN, 63);
+    break;
+  case 2:
+    analogWrite(MOTOR_PIN, 127);
+    break;
+  case 3:
+    analogWrite(MOTOR_PIN, 191);
+    break;
+  case 4:
+    analogWrite(MOTOR_PIN, 255);
+    break;
+  default:
+    analogWrite(MOTOR_PIN, 0);
+    break;
   }
 }
 
 void set_gate(char gate_state) {
   switch (gate_state) {
-    case 'O':
-      for (pos; pos <= 90; pos++) {
-        servo.write(pos);
-        delay(30);
-      }
-      ss.is_gate_open = true;
-      break;
-    case 'C':
-      for (pos; pos >= 0; pos--) {
-        servo.write(pos);
-        delay(30);
-      }
-      ss.is_gate_open = false;
-      break;
+  case 'O':
+    for (pos; pos <= 90; pos++) {
+      servo.write(pos);
+      delay(30);
+    }
+    ss.is_gate_open = true;
+    break;
+  case 'C':
+    for (pos; pos >= 0; pos--) {
+      servo.write(pos);
+      delay(30);
+    }
+    ss.is_gate_open = false;
+    break;
   }
 }
 
 void trigger_alarm(int duration) {
-  if (ss.is_gate_open){
+  if (ss.is_gate_open) {
     tone(PIEZO_PIN, 1000, 100);
-  }
-  else {
+  } else {
     noTone(PIEZO_PIN);
   }
 }
 
 void state_inside_sensor() {
-  long inside_distance = get_distance(INSIDE_ULTRASONIC_TRIG, INSIDE_ULTRASONIC_ECHO);
+  long inside_distance =
+      get_distance(INSIDE_ULTRASONIC_TRIG, INSIDE_ULTRASONIC_ECHO);
   ss.is_on_inside_sensor = (inside_distance <= INSIDE_DISTANCE_THRESHOLD);
-<<<<<<< HEAD
-=======
-  // Serial.print("inside flag : ");
-  // Serial.println(ss.is_on_inside_sensor);
->>>>>>> origin/hyunmin
 }
 
 void state_outside_sensor() {
-  long outside_distance = get_distance(OUTSIDE_ULTRASONIC_TRIG, OUTSIDE_ULTRASONIC_ECHO);
-<<<<<<< HEAD
+  long outside_distance =
+      get_distance(OUTSIDE_ULTRASONIC_TRIG, OUTSIDE_ULTRASONIC_ECHO);
   ss.is_on_outside_sensor = (outside_distance <= OUTSIDE_DISTANCE_THRESHOLD);
-=======
-  // Serial.print("Ouside distance : ");
-  // Serial.println(outside_distance);
-  ss.is_on_outside_sensor = (outside_distance <= OUTSIDE_DISTANCE_THRESHOLD);
-  // Serial.print("outside flag : ");
-  // Serial.println(ss.is_on_outside_sensor);
->>>>>>> origin/hyunmin
 }
 
 void state_led() {
@@ -186,43 +174,43 @@ void state_led() {
 
 void state_gate() {
   switch (gate_state) {
-    case IDLE:
-      if (!ss.is_parking && ss.is_on_outside_sensor) {
-        set_gate('O');
-        gate_state = ENTRY_DETECTED;
-      } else if (ss.is_parking && ss.is_on_inside_sensor) {
-        set_gate('O');
-        gate_state = EXIT_DETECTED;
-      }
-      break;
+  case IDLE:
+    if (!ss.is_parking && ss.is_on_outside_sensor) {
+      set_gate('O');
+      gate_state = ENTRY_DETECTED;
+    } else if (ss.is_parking && ss.is_on_inside_sensor) {
+      set_gate('O');
+      gate_state = EXIT_DETECTED;
+    }
+    break;
 
-    case ENTRY_DETECTED:
-      if (ss.is_on_inside_sensor) {
-        gate_state = ENTRY_IN_PROGRESS;
-      }
-      break;
+  case ENTRY_DETECTED:
+    if (ss.is_on_inside_sensor) {
+      gate_state = ENTRY_IN_PROGRESS;
+    }
+    break;
 
-    case ENTRY_IN_PROGRESS:
-      if (!ss.is_on_outside_sensor && !ss.is_on_inside_sensor) {
-        set_gate('C');
-        ss.is_parking = true;
-        gate_state = IDLE;
-      }
-      break;
+  case ENTRY_IN_PROGRESS:
+    if (!ss.is_on_outside_sensor && !ss.is_on_inside_sensor) {
+      set_gate('C');
+      ss.is_parking = true;
+      gate_state = IDLE;
+    }
+    break;
 
-    case EXIT_DETECTED:
-      if (ss.is_on_outside_sensor) {
-        gate_state = EXIT_IN_PROGRESS;
-      }
-      break;
+  case EXIT_DETECTED:
+    if (ss.is_on_outside_sensor) {
+      gate_state = EXIT_IN_PROGRESS;
+    }
+    break;
 
-    case EXIT_IN_PROGRESS:
-      if (!ss.is_on_outside_sensor && !ss.is_on_inside_sensor) {
-        set_gate('C');
-        ss.is_parking = false;
-        gate_state = IDLE;
-      }
-      break;
+  case EXIT_IN_PROGRESS:
+    if (!ss.is_on_outside_sensor && !ss.is_on_inside_sensor) {
+      set_gate('C');
+      ss.is_parking = false;
+      gate_state = IDLE;
+    }
+    break;
   }
 }
 
@@ -241,15 +229,7 @@ void state_motor() {
 
 void state_gas() {
   int gas = get_gas();
-<<<<<<< HEAD
   ss.is_gas_detected = (gas > GAS_THRESHOLD);
-=======
-  Serial.print("Gas data : ");
-  Serial.println(gas);
-  ss.is_gas_detected = (gas > GAS_THRESHOLD);
-  Serial.print("Gas flag : ");
-  Serial.println(ss.is_gas_detected);
->>>>>>> origin/hyunmin
 }
 
 void state() {
