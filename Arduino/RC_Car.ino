@@ -174,6 +174,9 @@ public:
 
     long duration = pulseEnd - pulseStart;
     float distance = duration * 0.0343 / 2;
+    if(distance > 400.0){
+      distance = 400.0;
+    }
     return distance;
   }
 };
