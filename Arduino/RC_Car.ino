@@ -1,4 +1,5 @@
 #include "PCF8574.h"        // PCF8574 라이브러리
+#include <U8glib.h>
 #include <Servo.h>          // Servo 라이브러리
 #include <SoftwareSerial.h> // 소프트웨어 시리얼 라이브러리
 #include <Wire.h>           // I2C 통신 라이브러리
@@ -27,6 +28,9 @@ const int RIGHTECHO = 2;   // PCF8574 P2 (우측 Echo)
 const int RIGHTTRIG = 3;   // PCF8574 P3 (우측 Trig)
 const int FRONTECHO = 4;   // PCF8574 P4 (전방 Echo)
 const int FRONTTRIG = 5;   // PCF8574 P5 (전방 Trig)
+
+/* OLED 설정 */
+U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE);
 
 /* ------------------------------------------------------------------
    1. 모터 제어 클래스 (MotorController)
@@ -175,7 +179,14 @@ public:
 };
 
 /* ------------------------------------------------------------------
-   4. RC카 제어 클래스 (RC_Car)
+   4. OLED 클래스 (OLED)
+------------------------------------------------------------------- */
+// class OLED {
+
+// }
+
+/* ------------------------------------------------------------------
+   5. RC카 제어 클래스 (RC_Car)
    - 블루투스 명령에 따라 수동 모드 또는 자동 모드를 실행
    - 자동 모드에서는 DC모터는 계속 전진하며, 초음파 센서 정보를 0.2초마다 받아 장애물에 따라 조향합니다.
 ------------------------------------------------------------------- */
@@ -392,7 +403,7 @@ public:
     }
     else if (right < LR_THRESHOLD){     // 오른쪽에만 장애물 있으면 왼쪽으로 짧게 회전
       servo.turnLeft();
-    }a
+    }
     else {
       // 장애물이 없으면 중앙 유지
       servo.center();
@@ -417,4 +428,23 @@ void setup() {
 
 void loop() {
   car.update();
+  u8g.firstPage();
+  long left = UltrasonicSensor(&pcf, LEFTTRIG, LEFTECHO).getDistance();
+  long front = UltrasonicSensor(&pcf, FRONTTRIG, FRONTECHO).getDistance();
+  long right = UltrasonicSensor(&pcf, RIGHTTRIG, RIGHTECHO).getDistance();
+  do {
+    u8g.setFont(u8g_font_fub14);
+    u8g.setPrintPos(5, 20);
+    u8g.print("left : ");
+    u8g.print(left);
+    u8g.print("cm");
+    u8g.setPrintPos(5, 40);
+    u8g.print("right : ");
+    u8g.print(right);
+    u8g.print("cm");
+    u8g.setPrintPos(5,60);
+    u8g.print("Front : ");
+    u8g.print(front);
+    u8g.print("cm");
+  } while(u8g.nextPage());
 }
