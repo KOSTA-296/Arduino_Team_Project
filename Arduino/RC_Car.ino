@@ -1,4 +1,5 @@
 #include "PCF8574.h"        // PCF8574 라이브러리
+#include <U8glib.h>
 #include <Servo.h>          // Servo 라이브러리
 #include <SoftwareSerial.h> // 소프트웨어 시리얼 라이브러리
 #include <Wire.h>           // I2C 통신 라이브러리
@@ -12,6 +13,9 @@
 #define SPEED_R 11            // 우측 모터 PWM 핀
 #define DC_IN1_R 8            // 우측 모터 IN1
 #define DC_IN2_R 12           // 우측 모터 IN2
+#define LEFT_LED 10            // 좌측 LED 핀
+#define RIGHT_LED 13          // 우측 LED 핀
+#define FRONT_LED 5          // 정면 LED 핀
 #define PCF8574_ADDRESS 0x20  // PCF8574 I2C 주소
 
 // 장애물 감지를 위한 임계값 (cm)
@@ -28,8 +32,12 @@ const int RIGHTTRIG = 3;   // PCF8574 P3 (우측 Trig)
 const int FRONTECHO = 4;   // PCF8574 P4 (전방 Echo)
 const int FRONTTRIG = 5;   // PCF8574 P5 (전방 Trig)
 
+/* OLED 설정 */
+U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE);
+
 /* ------------------------------------------------------------------
    1. 모터 제어 클래스 (MotorController)
+   - 모터 속도(0 ~ 255), 방향 설정
 ------------------------------------------------------------------- */
 class MotorController {
   int speedPinLeft, in1Left, in2Left;
@@ -141,6 +149,8 @@ public:
 
 /* ------------------------------------------------------------------
    3. 초음파 센서 클래스 (UltrasonicSensor)
+   - PCF8574 모듈에 장착된 초음파 센서로 거리 측정
+   - 트리거 핀을 HIGH로 설정 후 10us 대기, LOW로 설정
 ------------------------------------------------------------------- */
 class UltrasonicSensor {
   PCF8574* pcfPtr;
@@ -170,12 +180,111 @@ public:
 
     long duration = pulseEnd - pulseStart;
     float distance = duration * 0.0343 / 2;
+    if(distance > 400.0){
+      distance = 400.0;
+    }
     return distance;
   }
 };
 
 /* ------------------------------------------------------------------
-   4. RC카 제어 클래스 (RC_Car)
+   4. OLED 클래스 (OLED)
+   - U8glib 라이브러리를 사용하여 OLED에 초음파 센서로 측정한 거리 정보 출력
+------------------------------------------------------------------- */
+class OLED {
+public:
+  OLED() { }
+  void print_UltraSensor(long left, long front, long right){
+    u8g.firstPage();
+    bool l_flag = false;
+    bool r_flag = false;
+    bool f_flag = false;
+    if (left > 100){
+      l_flag = true;
+    } 
+    if (right > 100){
+      r_flag = true;
+    }
+    if (front > 100){
+      f_flag = true;
+    }
+    do {
+      u8g.setFont(u8g_font_fub14);
+      u8g.setPrintPos(5, 20);
+      u8g.print("left : ");
+      if (l_flag){
+        u8g.print("clear");
+      }
+      else{
+        u8g.print(left);
+        u8g.print("cm");
+      }
+      u8g.setPrintPos(5, 40);
+      u8g.print("right : ");
+      if (r_flag){
+        u8g.print("clear");
+      }
+      else{
+        u8g.print(right);
+        u8g.print("cm");
+      }
+      u8g.setPrintPos(5,60);
+      u8g.print("Front : ");
+      if (f_flag){
+        u8g.print("clear");
+      }
+      else{
+        u8g.print(front);
+        u8g.print("cm");
+      }
+    } while(u8g.nextPage());
+  }
+  // void print_String(int posX, int posY, string str){
+
+  // }
+};
+
+/* ------------------------------------------------------------------
+   5. LED 클래스 (OLED)
+   - LED 제어를 위한 클래스
+------------------------------------------------------------------- */
+class LED {
+  int leftPin;
+  int frontPin;
+  int rightPin;
+public:
+  LED(int left, int front, int right) : leftPin(left), frontPin(front), rightPin(right) { }
+  // 핀 설정
+  void begin(){
+    pinMode(leftPin, OUTPUT);
+    pinMode(frontPin, OUTPUT);
+    pinMode(rightPin, OUTPUT);
+  }
+  //좌측 LED on, off
+  void LeftOn(){
+    digitalWrite(leftPin, HIGH);
+  }
+  void LeftOff(){
+    digitalWrite(leftPin, LOW);
+  }
+  // 전면 LED on, off
+  void FrontOn(){
+    digitalWrite(frontPin, HIGH);
+  }
+  void FrontOff(){
+    digitalWrite(frontPin, LOW);
+  }
+  // 우측 LED on, off
+  void RightOn(){
+    digitalWrite(rightPin, HIGH);
+  }
+  void RightOff(){
+    digitalWrite(rightPin, LOW);
+  }
+};
+
+/* ------------------------------------------------------------------
+   6. RC카 제어 클래스 (RC_Car)
    - 블루투스 명령에 따라 수동 모드 또는 자동 모드를 실행
    - 자동 모드에서는 DC모터는 계속 전진하며, 초음파 센서 정보를 0.2초마다 받아 장애물에 따라 조향합니다.
 ------------------------------------------------------------------- */
@@ -185,6 +294,8 @@ class RC_Car {
   UltrasonicSensor sensorFront;
   UltrasonicSensor sensorLeft;
   UltrasonicSensor sensorRight;
+  LED led;
+  OLED oled;
   SoftwareSerial* btSerial;  // 블루투스 통신용 소프트웨어 시리얼
   int speed;                 // DC모터 속도
   int command;               // 수동 조종 명령 (1~9)
@@ -196,6 +307,8 @@ public:
       sensorFront(&pcf, FRONTTRIG, FRONTECHO),
       sensorLeft(&pcf, LEFTTRIG, LEFTECHO),
       sensorRight(&pcf, RIGHTTRIG, RIGHTECHO),
+      led(LEFT_LED, RIGHT_LED, FRONT_LED),
+      oled(),
       btSerial(serial),
       speed(150),
       command(5),
@@ -209,6 +322,7 @@ public:
     pcf.write(LEFTTRIG, LOW);
     pcf.write(RIGHTTRIG, LOW);
     pcf.write(FRONTTRIG, LOW);
+    led.begin();
   }
   
   // 블루투스 명령 처리 및 모드 업데이트  
@@ -217,7 +331,6 @@ public:
     if (btSerial->available()) {
       String btStr = btSerial->readStringUntil('c'); // 'c'까지 읽기
       int btNum = btStr.toInt();
-      
       // 10 이상의 값은 속도 업데이트로 처리
       if (btNum > 9) {
         speed = btNum;
@@ -225,10 +338,10 @@ public:
       // 0번 명령: 모드 토글
       else if (btNum == 0) {
         autoMode = !autoMode;
-        if (autoMode)
-          Serial.println("Auto Mode ON");
-        else
-          Serial.println("RC-Car Mode ON");
+        // if (autoMode)
+          // Serial.println("Auto Mode ON");
+        // else
+          // Serial.println("RC-Car Mode ON");
         delay(200);  // 모드 전환 debounce용 짧은 딜레이
       }
       // 수동 명령 (1~9)은 autoMode가 아닐 때만 반영
@@ -251,6 +364,7 @@ public:
   
   // 수동 조종 함수 (이전 코드 유지)
   void manualDrive(int cmd) {
+    // oled.print_UltraSensor();
     switch (cmd) {
       case 1: leftForward();  break;
       case 2: forward();      break;
@@ -267,6 +381,7 @@ public:
   
   // 동작 함수들 (수동 모드 예제)
   void leftForward() {
+    led.LeftOn();
     motor.setDirection('F');
     servo.turnLeft();
     motor.setSpeed(speed);
@@ -274,12 +389,14 @@ public:
   }
   
   void forward() {
+    led.FrontOn();
     servo.center();
     motor.setDirection('F');
     motor.setSpeed(speed);
   }
   
   void rightForward() {
+    led.RightOn();
     motor.setDirection('F');
     servo.turnRight();
     motor.setSpeed(speed);
@@ -287,20 +404,26 @@ public:
   }
   
   void turnLeft() {
+    led.LeftOn();
     servo.turnLeft();
   }
   
   void stop() {
+    led.FrontOff();
+    led.LeftOff();
+    led.RightOff();
     motor.setSpeed(0);
     motor.setDirection('S');
     servo.center();
   }
   
   void turnRight() {
+    led.RightOn();
     servo.turnRight();
   }
   
   void leftBack() {
+    led.LeftOn();
     motor.setDirection('B');
     servo.turnLeft();
     motor.setSpeed(speed);
@@ -314,6 +437,7 @@ public:
   }
   
   void rightBack() {
+    led.RightOn();
     motor.setDirection('B');
     servo.turnRight();
     motor.setSpeed(speed);
@@ -321,6 +445,7 @@ public:
   }
   
   void autoLeft(){
+    led.LeftOn();
     motor.setDirection('B');
     motor.setSpeed(speed);
     delay(500);
@@ -329,6 +454,7 @@ public:
   }
 
   void autoRight(){
+    led.RightOn();
     motor.setDirection('B');
     motor.setSpeed(speed);
     delay(500);
@@ -339,29 +465,27 @@ public:
   // 자동 주행 함수  
   // DC모터는 계속 전진하면서 0.2초마다 센서 값을 읽어 아래 규칙에 따라 조향합니다.
   void autoDrive() {
-    float front = sensorFront.getDistance();
-    float left = sensorLeft.getDistance();
-    float right = sensorRight.getDistance();
-
+    long front = sensorFront.getDistance();
+    long left = sensorLeft.getDistance();
+    long right = sensorRight.getDistance();
+    oled.print_UltraSensor(left, front, right);
     // DC모터는 항상 전진 상태로 설정
-    motor.setDirection('F');
-    motor.setSpeed(speed);
+    forward();
     
     // 조건 판단 (우선순위: 세 센서 모두 장애물 > front+right > front+left > front 단독)
     if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
-      // 세 센서 모두 30cm 이내: 후진 동작 (1000ms)
+      // 세 센서 모두 30cm 이내: 후진 동작 (2000ms)
       stop();
       Serial.println("All obstacles! Reverse");
       servo.center();
-      motor.setDirection('B');
-      motor.setSpeed(speed);
+      back();           // 2초 후진 이후 전진 로직
       delay(2000);
-      motor.setDirection('F');
+      forward();
     }
     else if (front < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
       // 전방 및 오른쪽 장애물: 좌측 회전
       stop();
-      Serial.println("Front & Right blocked. Turn Left");
+      // Serial.println("Front & Right blocked. Turn Left");
       autoLeft();
       delay(100);
       // servo.center();
@@ -369,7 +493,7 @@ public:
     else if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD) {
       // 전방 및 왼쪽 장애물: 우측 회전
       stop();
-      Serial.println("Front & Left blocked. Turn Right");
+      // Serial.println("Front & Left blocked. Turn Right");
       autoRight();
       delay(100);
       // servo.center();
@@ -383,7 +507,7 @@ public:
       else{
         autoLeft();
       }
-      Serial.println("Front blocked. Turn Right");
+      // Serial.println("Front blocked. Turn Right");
       delay(100);
       // servo.center();
     }
@@ -392,7 +516,7 @@ public:
     }
     else if (right < LR_THRESHOLD){     // 오른쪽에만 장애물 있으면 왼쪽으로 짧게 회전
       servo.turnLeft();
-    }a
+    }
     else {
       // 장애물이 없으면 중앙 유지
       servo.center();
@@ -405,13 +529,12 @@ public:
 ------------------------------------------------------------------- */
 SoftwareSerial btSerial(TXD, RXD);  // 블루투스 통신용 SoftwareSerial
 RC_Car car(&btSerial);              // RC_Car 객체 생성
-
+// LED led(LEFT_LED, FRONT_LED, RIGHT_LED);
 void setup() {
   Serial.begin(9600);
   btSerial.begin(9600);
   Wire.begin();
   pcf.begin();
-  
   car.begin();
 }
 
