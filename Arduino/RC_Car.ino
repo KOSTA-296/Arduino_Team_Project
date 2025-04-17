@@ -336,10 +336,10 @@ public:
       // 0번 명령: 모드 토글
       else if (btNum == 0) {
         autoMode = !autoMode;
-        if (autoMode)
-          Serial.println("Auto Mode ON");
-        else
-          Serial.println("RC-Car Mode ON");
+        // if (autoMode)
+          // Serial.println("Auto Mode ON");
+        // else
+          // Serial.println("RC-Car Mode ON");
         delay(200);  // 모드 전환 debounce용 짧은 딜레이
       }
       // 수동 명령 (1~9)은 autoMode가 아닐 때만 반영
@@ -362,6 +362,7 @@ public:
   
   // 수동 조종 함수 (이전 코드 유지)
   void manualDrive(int cmd) {
+    // oled.print_UltraSensor();
     switch (cmd) {
       case 1: leftForward();  break;
       case 2: forward();      break;
@@ -474,7 +475,7 @@ public:
     if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
       // 세 센서 모두 30cm 이내: 후진 동작 (1000ms)
       stop();
-      Serial.println("All obstacles! Reverse");
+      // Serial.println("All obstacles! Reverse");
       servo.center();
       motor.setDirection('B');
       motor.setSpeed(speed);
@@ -484,7 +485,7 @@ public:
     else if (front < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
       // 전방 및 오른쪽 장애물: 좌측 회전
       stop();
-      Serial.println("Front & Right blocked. Turn Left");
+      // Serial.println("Front & Right blocked. Turn Left");
       autoLeft();
       delay(100);
       // servo.center();
@@ -492,7 +493,7 @@ public:
     else if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD) {
       // 전방 및 왼쪽 장애물: 우측 회전
       stop();
-      Serial.println("Front & Left blocked. Turn Right");
+      // Serial.println("Front & Left blocked. Turn Right");
       autoRight();
       delay(100);
       // servo.center();
@@ -506,7 +507,7 @@ public:
       else{
         autoLeft();
       }
-      Serial.println("Front blocked. Turn Right");
+      // Serial.println("Front blocked. Turn Right");
       delay(100);
       // servo.center();
     }
@@ -539,9 +540,4 @@ void setup() {
 
 void loop() {
   car.update();
-  long left = UltrasonicSensor(&pcf, LEFTTRIG, LEFTECHO).getDistance();
-  long front = UltrasonicSensor(&pcf, FRONTTRIG, FRONTECHO).getDistance();
-  long right = UltrasonicSensor(&pcf, RIGHTTRIG, RIGHTECHO).getDistance();
-  OLED oled;
-  oled.print_UltraSensor(left, front, right);
 }
