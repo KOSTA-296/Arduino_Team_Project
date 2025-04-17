@@ -14,8 +14,8 @@
 #define DC_IN1_R 8            // 우측 모터 IN1
 #define DC_IN2_R 12           // 우측 모터 IN2
 #define LEFT_LED 10            // 좌측 LED 핀
-#define RIGHT_LED 13          // 우측 LED 핀
-#define FRONT_LED 5          // 정면 LED 핀
+#define RIGHT_LED 5          // 우측 LED 핀
+#define FRONT_LED 13          // 정면 LED 핀
 #define PCF8574_ADDRESS 0x20  // PCF8574 I2C 주소
 
 // 장애물 감지를 위한 임계값 (cm)
@@ -37,7 +37,6 @@ U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE);
 
 /* ------------------------------------------------------------------
    1. 모터 제어 클래스 (MotorController)
-   - 모터 속도(0 ~ 255), 방향 설정
 ------------------------------------------------------------------- */
 class MotorController {
   int speedPinLeft, in1Left, in2Left;
@@ -149,8 +148,6 @@ public:
 
 /* ------------------------------------------------------------------
    3. 초음파 센서 클래스 (UltrasonicSensor)
-   - PCF8574 모듈에 장착된 초음파 센서로 거리 측정
-   - 트리거 핀을 HIGH로 설정 후 10us 대기, LOW로 설정
 ------------------------------------------------------------------- */
 class UltrasonicSensor {
   PCF8574* pcfPtr;
@@ -189,7 +186,6 @@ public:
 
 /* ------------------------------------------------------------------
    4. OLED 클래스 (OLED)
-   - U8glib 라이브러리를 사용하여 OLED에 초음파 센서로 측정한 거리 정보 출력
 ------------------------------------------------------------------- */
 class OLED {
 public:
@@ -246,7 +242,6 @@ public:
 
 /* ------------------------------------------------------------------
    5. LED 클래스 (OLED)
-   - LED 제어를 위한 클래스
 ------------------------------------------------------------------- */
 class LED {
   int leftPin;
@@ -259,6 +254,9 @@ public:
     pinMode(leftPin, OUTPUT);
     pinMode(frontPin, OUTPUT);
     pinMode(rightPin, OUTPUT);
+    digitalWrite(leftPin, LOW);
+    digitalWrite(frontPin, LOW);
+    digitalWrite(rightPin, LOW);
   }
   //좌측 LED on, off
   void LeftOn(){
@@ -350,10 +348,13 @@ public:
         manualDrive(command);
       }
     }
-    
+    long front = sensorFront.getDistance();
+    long left = sensorLeft.getDistance();
+    long right = sensorRight.getDistance();
+    oled.print_UltraSensor(left, front, right);
     // 모드에 따라 실행
     if (autoMode) {
-      autoDrive();
+      autoDrive(left, front, right);
       delay(200);  // 0.2초 주기로 센서 읽기 및 판단
     }
     else {
@@ -381,52 +382,52 @@ public:
   
   // 동작 함수들 (수동 모드 예제)
   void leftForward() {
-    led.LeftOn();
     motor.setDirection('F');
     servo.turnLeft();
     motor.setSpeed(speed);
+    led.LeftOn();
     // delay(2200);
   }
   
   void forward() {
-    led.FrontOn();
     servo.center();
     motor.setDirection('F');
     motor.setSpeed(speed);
+    led.FrontOn();
   }
   
   void rightForward() {
-    led.RightOn();
     motor.setDirection('F');
     servo.turnRight();
     motor.setSpeed(speed);
+    led.RightOn();
     // delay(2200);
   }
   
   void turnLeft() {
-    led.LeftOn();
     servo.turnLeft();
+    led.LeftOn();
   }
   
   void stop() {
-    led.FrontOff();
-    led.LeftOff();
-    led.RightOff();
     motor.setSpeed(0);
     motor.setDirection('S');
     servo.center();
+    led.FrontOff();
+    led.LeftOff();
+    led.RightOff();
   }
   
   void turnRight() {
-    led.RightOn();
     servo.turnRight();
+    led.RightOn();
   }
   
   void leftBack() {
-    led.LeftOn();
     motor.setDirection('B');
     servo.turnLeft();
     motor.setSpeed(speed);
+    led.LeftOn();
     // delay(2200);
   }
   
@@ -437,10 +438,10 @@ public:
   }
   
   void rightBack() {
-    led.RightOn();
     motor.setDirection('B');
     servo.turnRight();
     motor.setSpeed(speed);
+    led.RightOn();
     // delay(2200);
   }
   
@@ -464,23 +465,21 @@ public:
 
   // 자동 주행 함수  
   // DC모터는 계속 전진하면서 0.2초마다 센서 값을 읽어 아래 규칙에 따라 조향합니다.
-  void autoDrive() {
-    long front = sensorFront.getDistance();
-    long left = sensorLeft.getDistance();
-    long right = sensorRight.getDistance();
-    oled.print_UltraSensor(left, front, right);
+  void autoDrive(long left, long front, long right) {
     // DC모터는 항상 전진 상태로 설정
-    forward();
+    motor.setDirection('F');
+    motor.setSpeed(speed);
     
     // 조건 판단 (우선순위: 세 센서 모두 장애물 > front+right > front+left > front 단독)
     if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
-      // 세 센서 모두 30cm 이내: 후진 동작 (2000ms)
+      // 세 센서 모두 30cm 이내: 후진 동작 (1000ms)
       stop();
-      Serial.println("All obstacles! Reverse");
+      // Serial.println("All obstacles! Reverse");
       servo.center();
-      back();           // 2초 후진 이후 전진 로직
+      motor.setDirection('B');
+      motor.setSpeed(speed);
       delay(2000);
-      forward();
+      motor.setDirection('F');
     }
     else if (front < OBSTACLE_THRESHOLD && right < OBSTACLE_THRESHOLD) {
       // 전방 및 오른쪽 장애물: 좌측 회전
