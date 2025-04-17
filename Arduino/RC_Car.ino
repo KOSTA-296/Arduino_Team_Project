@@ -199,28 +199,28 @@ public:
     u8g.firstPage();
     do {
       u8g.setFont(u8g_font_fub14);
-      u8g.setPrintPos(5, 20);
+      u8g.setPrintPos(0, 15);
       u8g.print("left : ");
       if (left > 100){
-        u8g.print("No obstacles");
+        u8g.print("Clear");
       }
       else{
         u8g.print(left);
         u8g.print("cm");
       }
-      u8g.setPrintPos(5, 40);
+      u8g.setPrintPos(0, 35);
       u8g.print("Front : ");
       if (front > 100){
-        u8g.print("No obstacles");
+        u8g.print("Clear");
       }
       else{
         u8g.print(front);
         u8g.print("cm");
       }
-      u8g.setPrintPos(5, 60);
+      u8g.setPrintPos(0, 55);
       u8g.print("right : ");
       if (right > 100){
-        u8g.print("No obstacles");
+        u8g.print("Clear");
       }
       else{
         u8g.print(right);
