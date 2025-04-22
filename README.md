@@ -93,7 +93,7 @@ Arduino_Team_Project/
 
 ## ⚙️ 부품 구성 및 회로도
 
-### 주요 부품 리스트
+### RC카 부품 구성
 
 | 항목 | 수량 | 스펙(데이터 시트 참고) | 용도(중요) | 모델명 |
 | --- | --- | --- | --- | --- |
@@ -102,7 +102,7 @@ Arduino_Team_Project/
 | DC 모터 | 1 | 정격 전압 : 4.5V<br>작동 전압 : 3V ~ 6V<br>3V → 약 90RPM<br>6V → 약 200RPM | 동력원 | RF-310 |
 | DC 모터 바퀴 | 4 | 듀얼 H-브리지<br> 작동 전압 : 5V ~ 35V<br> 출력 전류 : 최대 2A(모터당)<br> 논리 전압 : 5V | 자동차 바퀴 |  |
 | L298N 모터 드라이버 | 1 | 듀얼 H-브리지<br>작동 전압 : 5V ~ 35V<br>출력 전류 : 최대 2A(모터당)<br>논리 전압 : 5V | DC 모터 제어용 |  |
-| 서보 모터 | 1 | 작동 전압 : 4.8V~6V <br>회전 각도 : 0°~180° <br>제어 방식 : PWM <br>토크 : 약 1.8kg·cm (4.8V 기준) | 방향 전환용 | SG90 |
+| 서보 모터 | 1 | 작동 전압 : 4.8V \~ 6V <br>회전 각도 : 0° \~ 180° <br>제어 방식 : PWM <br>토크 : 약 1.8kg·cm (4.8V 기준) | 방향 전환용 | SG90 |
 | 초음파 센서 | 3 | 측정 거리 : 2cm ~ 400cm <br>측정 정확도 : ±3mm <br>작동 전압 : 5V <br>제어 방식 : 트리거/에코 핀 | 자율 주행 모드를 위한 센서 |  |
 | PCF8584 멀티플렉서 | 1 | 8-bit I/O 확장기 (I²C 인터페이스) <br>작동 전압: 2.5V ~ 6V <br>I²C 주소 지정 가능 (최대 8개 사용) <br>핀당 25mA 출력 | 우노 보드 디지털핀 확장용 |  |
 | Bluetooth 또는 WI-FI 모듈 | 1 | 작동 전압 : 3.3V ~ 5V <br>통신 방식 : UART(TX/RX) <br>통신 속도 : 9600bps(기본) <br>작동 범위 : 약 10m | 스마트폰과 우노 보드 통신 |  |
@@ -113,9 +113,26 @@ Arduino_Team_Project/
 | 점퍼 케이블 수-수 | 30 |  | 회로 연결용 |  |
 | 점퍼 케이블 암-수 | 30 |  | 회로 연결용 |  |
 
+### 스마트 주차장 부품 구성
+
+| 항목 | 수량 | 스펙(데이터 시트 참고) | 용도(중요) | 모델명 |
+| --- | --- | --- | --- | --- |
+| 아두이노 우노 보드 | 1 |  | 메인 보드 | UNO R3 |
+| 브레드 보드 | 1 |  | 회로 구성 | 400핀 |
+| DC 모터 | 1 | 정격 전압 : 4.5V<br>전압 : 3V ~ 6V<br>3V → 약 90RPM<br>6V → 약 200RPM | 환풍기 모터 | RF-310 |
+| 다이오드 | 1 |  | DC 모터 제어용 | 1N4001 |
+| 트랜지스터 | 1 |  | DC 모터 제어용 | 2N2222A |
+| 9V 배터리 | 1 |  | DC 모터 전원 |  |
+| 점퍼 케이블 수-수 | 20 |  | 회로 연결용 |  |
+| 점퍼 케이블 암-수 | 50 |  | 회로 연결용 |  |
+| 가스 센서 | 1 |  | 환풍기 제어용 | MQ-5 |
+| 초음파 센서 | 2 |  | 입구 출입 감지용 | HC-SR04 |
+| 피에조 스피커 | 1 |  | 출입 감지 시 경보 출력 |  |
+
+
 ### 🔌 회로 구성
 
-- **RC카 회로도** (TinkerCad 제작)
+### RC카 회로도
   
 ![Image](https://github.com/user-attachments/assets/4b728efe-6e84-4840-b1e6-1d8cee7b7480)
 
@@ -136,8 +153,40 @@ Arduino_Team_Project/
   * HC06 블루투스 모듈은 회로도 상단에 와이파이 모듈로 대체하였습니다.
   * 모터 드라이버 L298N이 없어 유사한 기능을 가진 L293D로 대체하였습니다.
 
----
+### 스마트 주차장 회로도
+![image](https://github.com/user-attachments/assets/6999d75c-9beb-43dd-b531-7f49d0aec0fe)
 
-* 스마트 주차장 회로도
+## 하드웨어 제작 과정
 
-![Image](https://github.com/user-attachments/assets/31800612-7434-45b8-8948-3e923edfc756)
+### 조향 장치 + DC 모터 테스트 하드웨어
+![image](https://github.com/user-attachments/assets/7a0fff87-f8f0-459d-bcd5-76317b816fbd)
+
+### 초기 하드웨어 모습
+![image](https://github.com/user-attachments/assets/5bcdc910-64c0-4cc8-a624-a5d235062a00)
+
+### RC카 외관 디자인(초음파 센서 부착 전)
+![image](https://github.com/user-attachments/assets/0f820660-5e47-4e75-926c-2c5af4a184be)
+
+### RC카 초음파 센서 위치 조절
+![image](https://github.com/user-attachments/assets/eab32af1-53b1-43a6-8491-0db21d8aa95b)
+
+### RC카 완성 모습(외관)
+![image](https://github.com/user-attachments/assets/67c2ebff-b444-40d8-8a54-48f6f20235e8)
+
+### RC카 완성 모습(위)
+![image](https://github.com/user-attachments/assets/70595a18-78f7-471b-9f46-cac58d497bd2)
+
+### RC카 완성 내부 모습(앞)
+![image](https://github.com/user-attachments/assets/62fc5a14-1db4-4045-94e7-08a435c1d3bf)
+
+### RC카 완성 내부 모습(뒤)
+![image](https://github.com/user-attachments/assets/14a31d78-de4d-468f-8cea-58e24872f170)
+
+### 조향 장치 돌아가는 모습
+
+https://github.com/user-attachments/assets/bf03cc3f-9413-47f2-8c14-719593ad8bbd
+
+
+## ℹ️ 기능 별 코드 구성
+
+
