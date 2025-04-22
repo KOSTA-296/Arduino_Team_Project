@@ -77,7 +77,7 @@
 | 개발 도구 | C/C++ | 프로그래밍 언어 |  |
 | 버전 관리 | GitHub | 코드 및 프로젝트 관리 | https://github.com/Hyunmin5928/Arduino_Project |
 | 문서 관리 | Notion | 프로젝트 문서화 및 정리 | https://www.notion.so/1c4509b5e5858017aadeedd52537e593?v=1c4509b5e5858047ac4d000ca580f60f&pvs=4 |
-| CAD 도구 |  | 회로 설계 및 시뮬레이션 | https://www.tinkercad.com/dashboard |
+| CAD 도구 | TinkerCad | 회로 설계 및 시뮬레이션 | https://www.tinkercad.com/dashboard |
 | 하드웨어 | Arduino UNO | 아두이노 보드 및 센서 활용 | 각 모듈 개별 데이터 시트 참고 |
 
 ## ⚙️ 부품 구성 및 회로도
@@ -93,7 +93,7 @@
 | DC 모터 | 1 | 정격 전압 : 4.5V<br>작동 전압 : 3V ~ 6V<br>3V → 약 90RPM<br>6V → 약 200RPM | 동력원 | RF-310 |
 | DC 모터 바퀴 | 4 | 듀얼 H-브리지<br> 작동 전압 : 5V ~ 35V<br> 출력 전류 : 최대 2A(모터당)<br> 논리 전압 : 5V | 자동차 바퀴 |  |
 | L298N 모터 드라이버 | 1 | 듀얼 H-브리지<br>작동 전압 : 5V ~ 35V<br>출력 전류 : 최대 2A(모터당)<br>논리 전압 : 5V | DC 모터 제어용 |  |
-| 서보 모터 | 1 | 작동 전압 : 4.8V~6V <br>회전 각도 : 0°~180° <br>제어 방식 : PWM <br>토크 : 약 1.8kg·cm (4.8V 기준) | 방향 전환용 | SG90 |
+| 서보 모터 | 1 | 작동 전압 : 4.8V \~ 6V <br>회전 각도 : 0° \~ 180° <br>제어 방식 : PWM <br>토크 : 약 1.8kg·cm (4.8V 기준) | 방향 전환용 | SG90 |
 | 초음파 센서 | 3 | 측정 거리 : 2cm ~ 400cm <br>측정 정확도 : ±3mm <br>작동 전압 : 5V <br>제어 방식 : 트리거/에코 핀 | 자율 주행 모드를 위한 센서 |  |
 | PCF8584 멀티플렉서 | 1 | 8-bit I/O 확장기 (I²C 인터페이스) <br>작동 전압: 2.5V ~ 6V <br>I²C 주소 지정 가능 (최대 8개 사용) <br>핀당 25mA 출력 | 우노 보드 디지털핀 확장용 |  |
 | Bluetooth 또는 WI-FI 모듈 | 1 | 작동 전압 : 3.3V ~ 5V <br>통신 방식 : UART(TX/RX) <br>통신 속도 : 9600bps(기본) <br>작동 범위 : 약 10m | 스마트폰과 우노 보드 통신 |  |
@@ -104,6 +104,83 @@
 | 점퍼 케이블 수-수 | 30 |  | 회로 연결용 |  |
 | 점퍼 케이블 암-수 | 30 |  | 회로 연결용 |  |
 
-### 회로도
+### 🔩 스마트 주차장 부품 구성
 
+| 항목 | 수량 | 스펙(데이터 시트 참고) | 용도(중요) | 모델명 |
+| --- | --- | --- | --- | --- |
+| 아두이노 우노 보드 | 1 |  | 메인 보드 | UNO R3 |
+| 브레드 보드 | 1 |  | 회로 구성 | 400핀 |
+| DC 모터 | 1 | 정격 전압 : 4.5V<br>전압 : 3V ~ 6V<br>3V → 약 90RPM<br>6V → 약 200RPM | 환풍기 모터 | RF-310 |
+| 다이오드 | 1 |  | DC 모터 제어용 | 1N4001 |
+| 트랜지스터 | 1 |  | DC 모터 제어용 | 2N2222A |
+| 9V 배터리 | 1 |  | DC 모터 전원 |  |
+| 점퍼 케이블 수-수 | 20 |  | 회로 연결용 |  |
+| 점퍼 케이블 암-수 | 50 |  | 회로 연결용 |  |
+| 가스 센서 | 1 |  | 환풍기 제어용 | MQ-5 |
+| 초음파 센서 | 2 |  | 입구 출입 감지용 | HC-SR04 |
+| 피에조 스피커 | 1 |  | 출입 감지 시 경보 출력 |  |
+
+## 회로도
+
+### RC카 회로도
 ![Image](https://github.com/user-attachments/assets/be05bd03-b0e2-4490-b675-361fc7a7a347)
+- 블루투스 모듈 HC-06의 부재로, 미니 빵판을 활용하여 핀을 연결하였습니다.
+| 핀 | 역활 |
+| --- | --- |
+| D2, D3 | 블루투스 TXD, RXD |
+| D6, D11(PWM) | 모터 활성화 핀 |
+| D4, D7 | 1번 DC 모터 IN1, 2 |
+| D8, D12 | 2번 DC 모터 IN3, 4 |
+| D9(PWM) | 서보 모터 핀 |
+
+### 스마트 주차장 회로도
+![image](https://github.com/user-attachments/assets/6999d75c-9beb-43dd-b531-7f49d0aec0fe)
+
+## 하드웨어 제작 과정
+
+### 조향 장치 + DC 모터 테스트 하드웨어
+![image](https://github.com/user-attachments/assets/7a0fff87-f8f0-459d-bcd5-76317b816fbd)
+
+### 초기 하드웨어 모습
+![image](https://github.com/user-attachments/assets/5bcdc910-64c0-4cc8-a624-a5d235062a00)
+
+### RC카 외관 디자인(초음파 센서 부착 전)
+![image](https://github.com/user-attachments/assets/0f820660-5e47-4e75-926c-2c5af4a184be)
+
+### RC카 초음파 센서 위치 조절
+![image](https://github.com/user-attachments/assets/eab32af1-53b1-43a6-8491-0db21d8aa95b)
+
+### RC카 완성 모습(외관)
+![image](https://github.com/user-attachments/assets/67c2ebff-b444-40d8-8a54-48f6f20235e8)
+
+### RC카 완성 모습(위)
+![image](https://github.com/user-attachments/assets/70595a18-78f7-471b-9f46-cac58d497bd2)
+
+### RC카 완성 내부 모습(앞)
+![image](https://github.com/user-attachments/assets/62fc5a14-1db4-4045-94e7-08a435c1d3bf)
+
+### RC카 완성 내부 모습(뒤)
+![image](https://github.com/user-attachments/assets/14a31d78-de4d-468f-8cea-58e24872f170)
+
+### 조향 장치 돌아가는 모습
+
+https://github.com/user-attachments/assets/bf03cc3f-9413-47f2-8c14-719593ad8bbd
+
+
+## ℹ️ 기능 별 코드 구성
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
