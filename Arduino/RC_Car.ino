@@ -132,12 +132,12 @@ public:
     }
   }
 
-  // 좌측 회전: 2도로
+  // 좌측 회전 : 22 -> 2도
   void turnLeft() {
     setAngleSmoothly(pos, leftPos);
   }
   
-  // 우측 회전: 42도로
+  // 우측 회전 : 22 -> 42도
   void turnRight() {
     setAngleSmoothly(pos, rightPos);
   }
@@ -281,11 +281,11 @@ class RC_Car {
   UltrasonicSensor sensorRight;
   LED led;
   OLED oled;
-  SoftwareSerial* btSerial;  // 블루투스 통신용 소프트웨어 시리얼
-  int speed;                 // DC모터 속도
-  int command;               // 수동 조종 명령 (1~9)
-  bool autoMode;             // 자동 모드 여부 (false: RC카 모드, true: autoMode)
-  long front, left, right;
+  SoftwareSerial* btSerial;   // 블루투스 통신용 소프트웨어 시리얼
+  int speed;                  // DC모터 속도
+  int command;                // 수동 조종 명령 (1~9)
+  bool autoMode;              // 자동 모드 여부 (false: RC카 모드, true: autoMode)
+  long front, left, right;    // 초음파 센서가 측정 한 거리 저장용 변수
 public:
   RC_Car(SoftwareSerial* serial)
     : motor(SPEED_L, DC_IN1_L, DC_IN2_L, SPEED_R, DC_IN3_R, DC_IN4_R),
@@ -476,7 +476,6 @@ public:
       // Serial.println("Front & Right blocked. Turn Left");
       autoLeft();
       delay(100);
-      // servo.center();
     }
     else if (front < OBSTACLE_THRESHOLD && left < OBSTACLE_THRESHOLD) {
       // 전방 및 왼쪽 장애물: 우측 회전
@@ -484,7 +483,6 @@ public:
       // Serial.println("Front & Left blocked. Turn Right");
       autoRight();
       delay(100);
-      // servo.center();
     }
     else if (front < OBSTACLE_THRESHOLD) {
       // 전방 장애물만 존재할 때: 기본적으로 우측으로 회전
@@ -497,7 +495,6 @@ public:
       }
       // Serial.println("Front blocked. Turn Right");
       delay(100);
-      // servo.center();
     }
     else if (left < LR_THRESHOLD) {     // 왼쪽에만 장애물 있으면 오른쪽으로 짧게 회전
       servo.turnRight();
