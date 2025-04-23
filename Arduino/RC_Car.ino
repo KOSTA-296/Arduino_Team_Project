@@ -1,27 +1,29 @@
-#include "PCF8574.h"        // PCF8574 라이브러리
-#include <U8glib.h>
+#include "PCF8574.h"        // PCF8574 확장 모듈 라이브러리
+#include <U8glib.h>         // OLED 라이브러리
 #include <Servo.h>          // Servo 라이브러리
 #include <SoftwareSerial.h> // 소프트웨어 시리얼 라이브러리
-#include <Wire.h>           // I2C 통신 라이브러리
+#include <Wire.h>           // I2C 통신 라이브러리(OLED, PCF8574)
 
 /* 아두이노 보드 핀 설정 */
 #define TXD 2                 // TXD 핀
 #define RXD 3                 // RXD 핀
-#define SPEED_L 6             // 좌측 모터 PWM 핀
+#define SERVO_PIN 9           // 서보 모터 PWM 핀
+#define SPEED_L 6             // 좌측 모터 PWM 핀`
 #define DC_IN1_L 4            // 좌측 모터 IN1
 #define DC_IN2_L 7            // 좌측 모터 IN2
 #define SPEED_R 11            // 우측 모터 PWM 핀
-#define DC_IN1_R 8            // 우측 모터 IN1
-#define DC_IN2_R 12           // 우측 모터 IN2
-#define LEFT_LED 10            // 좌측 LED 핀
-#define RIGHT_LED 5          // 우측 LED 핀
+#define DC_IN3_R 8            // 우측 모터 IN3
+#define DC_IN4_R 12           // 우측 모터 IN4
+#define LEFT_LED 10           // 좌측 LED 핀
+#define RIGHT_LED 5           // 우측 LED 핀
 #define FRONT_LED 13          // 정면 LED 핀
+
 #define PCF8574_ADDRESS 0x20  // PCF8574 I2C 주소
 
-// 장애물 감지를 위한 임계값 (cm)
-constexpr int OBSTACLE_THRESHOLD = 30;
+// 장애물 감지를 위한 임계값 (cm) -> RC카에 알맞은 임계값을 찾아서 수정하여 사용 가능
+constexpr int OBSTACLE_THRESHOLD = 30;             // best : 30cm
 // 왼쪽 or 오른쪽에만 존재하는 장애물 감지를 위한 임계값 (cm)
-constexpr int LR_THRESHOLD = 20;    
+constexpr int LR_THRESHOLD = 20;                   // best : 20cm
 
 /* PCF8574 확장 모듈 핀 설정 (초음파 센서) */
 PCF8574 pcf(PCF8574_ADDRESS);
@@ -41,19 +43,19 @@ U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE);
 ------------------------------------------------------------------- */
 class MotorController {
   int speedPinLeft, in1Left, in2Left;
-  int speedPinRight, in1Right, in2Right;
+  int speedPinRight, in3Right, in4Right;
 public:
-  MotorController(int spdL, int i1L, int i2L, int spdR, int i1R, int i2R)
+  MotorController(int spdL, int i1L, int i2L, int spdR, int i3R, int i4R)
     : speedPinLeft(spdL), in1Left(i1L), in2Left(i2L),
-      speedPinRight(spdR), in1Right(i1R), in2Right(i2R) {}
+      speedPinRight(spdR), in3Right(i3R), in4Right(i4R) {}
 
   void begin() {
     pinMode(speedPinLeft, OUTPUT);
     pinMode(in1Left, OUTPUT);
     pinMode(in2Left, OUTPUT);
     pinMode(speedPinRight, OUTPUT);
-    pinMode(in1Right, OUTPUT);
-    pinMode(in2Right, OUTPUT);
+    pinMode(in3Right, OUTPUT);
+    pinMode(in4Right, OUTPUT);
   }
   
   // 모터 방향 설정 ('F': 전진, 'B': 후진, 'S': 정지)
@@ -62,21 +64,21 @@ public:
       case 'F': // 전진
         digitalWrite(in1Left, HIGH);
         digitalWrite(in2Left, LOW);
-        digitalWrite(in1Right, HIGH);
-        digitalWrite(in2Right, LOW);
+        digitalWrite(in3Right, HIGH);
+        digitalWrite(in4Right, LOW);
         break;
       case 'B': // 후진
         digitalWrite(in1Left, LOW);
         digitalWrite(in2Left, HIGH);
-        digitalWrite(in1Right, LOW);
-        digitalWrite(in2Right, HIGH);
+        digitalWrite(in3Right, LOW);
+        digitalWrite(in4Right, HIGH);
         break;
       case 'S': // 정지
       default:
         digitalWrite(in1Left, LOW);
         digitalWrite(in2Left, LOW);
-        digitalWrite(in1Right, LOW);
-        digitalWrite(in2Right, LOW);
+        digitalWrite(in3Right, LOW);
+        digitalWrite(in4Right, LOW);
         break;
     }
   }
@@ -132,17 +134,11 @@ public:
 
   // 좌측 회전: 2도로
   void turnLeft() {
-    // if (pos != centerPos) {
-    //   center();
-    // }
     setAngleSmoothly(pos, leftPos);
   }
   
   // 우측 회전: 42도로
   void turnRight() {
-    // if (pos != centerPos) {
-    //   center();
-    // }
     setAngleSmoothly(pos, rightPos);
   }
 };
@@ -289,10 +285,11 @@ class RC_Car {
   int speed;                 // DC모터 속도
   int command;               // 수동 조종 명령 (1~9)
   bool autoMode;             // 자동 모드 여부 (false: RC카 모드, true: autoMode)
+  long front, left, right;
 public:
   RC_Car(SoftwareSerial* serial)
-    : motor(SPEED_L, DC_IN1_L, DC_IN2_L, SPEED_R, DC_IN1_R, DC_IN2_R),
-      servo(9),
+    : motor(SPEED_L, DC_IN1_L, DC_IN2_L, SPEED_R, DC_IN3_R, DC_IN4_R),
+      servo(SERVO_PIN),
       sensorFront(&pcf, FRONTTRIG, FRONTECHO),
       sensorLeft(&pcf, LEFTTRIG, LEFTECHO),
       sensorRight(&pcf, RIGHTTRIG, RIGHTECHO),
@@ -301,7 +298,10 @@ public:
       btSerial(serial),
       speed(150),
       command(5),
-      autoMode(false)
+      autoMode(false),
+      front(0),
+      left(0),
+      right(0)
   {}
 
   void begin() {
@@ -336,9 +336,9 @@ public:
         manualDrive(command);
       }
     }
-    long front = sensorFront.getDistance();
-    long left = sensorLeft.getDistance();
-    long right = sensorRight.getDistance();
+    front = sensorFront.getDistance();
+    left = sensorLeft.getDistance();
+    right = sensorRight.getDistance();
     oled.print_UltraSensor(left, front, right);
     // autoMode 플래그에 따라 실행
     if (autoMode) {
