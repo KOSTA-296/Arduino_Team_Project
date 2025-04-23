@@ -46,8 +46,9 @@ Arduino_Team_Project/
 ├── App/ # 앱인벤터 .aia 파일 │
 ├── Arduino/ 
 │ ├── Parking.ino # 스마트 주차장 코드 
-│ └── RC_Car.ino # 자동차 제어 코드 
-│── library/
+│ ├── RC_Car.ino # 자동차 제어 코드
+| └── README.md # 코드 설명
+├── library/
 | └── PCF8574-master/ # PCF8574 라이브러리
 ```
 ※ PCF8574 라이브러리 출처: [GitHub 링크](https://github.com/xreef/PCF8574_library)
@@ -55,6 +56,8 @@ Arduino_Team_Project/
 ---
 
 ## ✅ 주요 기능 및 일정
+
+**주요 코드에 대한 설명은 Arduino/README.md 경로에 작성하였습니다.**
 
 ### 계획서
 
@@ -113,7 +116,9 @@ Arduino_Team_Project/
 | 점퍼 케이블 수-수 | 30 |  | 회로 연결용 |  |
 | 점퍼 케이블 암-수 | 30 |  | 회로 연결용 |  |
 
-### 스마트 주차장 부품 구성
+---
+
+### 스마트 주차장 부품 구성
 
 | 항목 | 수량 | 스펙(데이터 시트 참고) | 용도(중요) | 모델명 |
 | --- | --- | --- | --- | --- |
@@ -129,6 +134,7 @@ Arduino_Team_Project/
 | 초음파 센서 | 2 |  | 입구 출입 감지용 | HC-SR04 |
 | 피에조 스피커 | 1 |  | 출입 감지 시 경보 출력 |  |
 
+---
 
 ### 🔌 회로 구성
 
@@ -153,8 +159,12 @@ Arduino_Team_Project/
   * HC06 블루투스 모듈은 회로도 상단에 와이파이 모듈로 대체하였습니다.
   * 모터 드라이버 L298N이 없어 유사한 기능을 가진 L293D로 대체하였습니다.
 
+---
+
 ### 스마트 주차장 회로도
 ![image](https://github.com/user-attachments/assets/6999d75c-9beb-43dd-b531-7f49d0aec0fe)
+
+---
 
 ## 하드웨어 제작 과정
 
@@ -185,8 +195,3 @@ Arduino_Team_Project/
 ### 조향 장치 돌아가는 모습
 
 https://github.com/user-attachments/assets/bf03cc3f-9413-47f2-8c14-719593ad8bbd
-
-
-## ℹ️ 기능 별 코드 구성
-
-
